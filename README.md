@@ -22,6 +22,7 @@ Options:
   -s, --startblock <number>            Start block number. Defaults to smart contract genesis block.
   -e, --endblock <number>              End block number. Defaults to smart contract last transaction block.
   -p, --path <path>                    Path and name of the resulting csv file. Defaults to stdout.
+  -r, --ropsten <boolean>              Use Ropsten (testnet). Defaults to false.
   -m, --mongo <boolean>                Use MongoDB to save transactions' data. Defaults to false.
 ```
 

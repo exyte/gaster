@@ -9,11 +9,13 @@ function parseArgumentsIntoOptions(rawArgs) {
             '--startblock': Number,
             '--endblock': Number,
             '--path': String,
+            '--ropsten': Boolean,
             '--mongo': Boolean,
             '-a': '--address',
             '-s': '--startblock',
             '-e': '--endblock',
             '-p': '--path',
+            '-r': '--ropsten',
             '-m': '--mongo'
         },
         {
@@ -26,6 +28,7 @@ function parseArgumentsIntoOptions(rawArgs) {
         startblock: args['--startblock'] || false,
         endblock: args['--endblock'] || false,
         path: args['--path'] || false,
+        ropsten: args['--ropsten'] || false,
         mongo: args['--mongo'] || false
     }
 }

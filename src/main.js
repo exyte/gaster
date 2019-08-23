@@ -2,13 +2,14 @@ import { createWriteStream } from 'fs';
 import { parseAsync } from 'json2csv';
 import Listr from 'listr';
 import { MongoClient } from 'mongodb';
-import { Observable } from 'rxjs';
+import {observable, Observable} from 'rxjs';
 import {
     HttpRequestMethod,
     apiHttpRequest
 } from './utils';
 
 const ethApiUrl = 'https://api.etherscan.io/api';
+const ethRopstenApiUrl = 'https://api-ropsten.etherscan.io/api';
 
 // MongoDB parameters
 const url = 'mongodb://localhost:27017';
@@ -71,7 +72,7 @@ export const getGasStats = async (options) => {
 const getTxInfo = async (options) => {
     const offset = 200;
     return new Observable( async (observer) => {
-        let apiUrl = ethApiUrl;
+        let apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
         let pathParams = [];
         let params = {
             module: 'account',
@@ -140,6 +141,10 @@ const prepareTxsData = async function (options) {
 
 const persistTxsData = async function (options) {
     return new Observable( async (observer) => {
+        if (!this.txs.length) {
+            observer.complete();
+        }
+
         observer.next('Starting to persist transactions\' data');
         if (options.mongo) {
             this.txs.forEach(function(tx) {

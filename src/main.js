@@ -1,12 +1,12 @@
-import { createWriteStream } from 'fs';
-import { parseAsync } from 'json2csv';
-import Listr from 'listr';
-import { MongoClient } from 'mongodb';
-import {observable, Observable} from 'rxjs';
-import {
+const { createWriteStream } = require('fs');
+const { parseAsync } = require('json2csv');
+const Listr = require('listr');
+const { MongoClient } = require('mongodb');
+const { Observable} = require('rxjs');
+const {
     HttpRequestMethod,
     apiHttpRequest
-} from './utils';
+} = require('./utils');
 
 const ethApiUrl = 'https://api.etherscan.io/api';
 const ethRopstenApiUrl = 'https://api-ropsten.etherscan.io/api';
@@ -18,7 +18,7 @@ const collectionName = 'gasUsed';
 let db = false;
 let docs = false;
 
-export const getGasStats = async (options) => {
+const getGasStats = async (options) => {
     this.txs = [];
 
     if (!options.address) {
@@ -305,3 +305,5 @@ const aggregateData = async (options) => {
         });
     })
 };
+
+module.exports = { getGasStats };

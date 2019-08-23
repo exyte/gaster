@@ -1,11 +1,11 @@
-import fetch from 'node-fetch'
+const fetch = require('node-fetch');
 
-export const HttpRequestMethod = {
+const HttpRequestMethod = {
     GET: 'GET',
     POST: 'POST'
 };
 
-export const apiHttpRequest = async ({ apiUrl, pathParams = [], params: queryParams = {}, method }) => {
+const apiHttpRequest = async ({ apiUrl, pathParams = [], params: queryParams = {}, method }) => {
     let httpRequest;
     switch (method) {
         case HttpRequestMethod.GET:
@@ -46,7 +46,7 @@ const postAPI = async (apiURL, pathParams, queryParams) => {
     });
 };
 
-function buildUrl(url, params) {
+const buildUrl = (url, params) => {
     let qs = '';
     for (const key in params) {
         if (params.hasOwnProperty(key)) {
@@ -59,4 +59,9 @@ function buildUrl(url, params) {
     }
 
     return url;
-}
+};
+
+module.exports = {
+    apiHttpRequest,
+    HttpRequestMethod
+};

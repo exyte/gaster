@@ -1,6 +1,6 @@
-import arg from 'arg';
-import inquirer from 'inquirer';
-import { getGasStats } from './main';
+const arg = require('arg');
+const inquirer = require( 'inquirer');
+const { getGasStats } = require('./main');
 
 const parseArgumentsIntoOptions = (rawArgs) => {
     const args = arg(
@@ -52,9 +52,12 @@ const promptForMissingOptions = async (options) => {
     }
 };
 
-export const cli = async (args) => {
+const cli = async (args) => {
     let options = parseArgumentsIntoOptions(args);
     options = await promptForMissingOptions(options);
 
     await getGasStats(options);
 };
+
+module.exports = { cli };
+

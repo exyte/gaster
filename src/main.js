@@ -26,6 +26,13 @@ export const getGasStats = async (options) => {
         return;
     }
 
+    const validationResult = await validateContractAddress(options);
+
+    if (!validationResult.validated) {
+        console.error(`Error validating contract address: ${validationResult.err}`);
+        return;
+    }
+
     const tasks = new Listr([
         {
             title: 'Connecting to MongoDB',
@@ -69,11 +76,45 @@ export const getGasStats = async (options) => {
     });
 };
 
+const validateContractAddress = async (options) => {
+    let result = {
+        validated: true,
+        err: ''
+    };
+
+    const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
+    const pathParams = [];
+    const params = {
+        module: 'proxy',
+        action: 'eth_getCode',
+        address: options.address
+    };
+    const method = HttpRequestMethod.GET;
+    const response = await apiHttpRequest({
+        apiUrl,
+        pathParams,
+        params,
+        method
+    });
+
+    if (response.error) {
+        result.err = 'Address specified is invalid';
+        result.validated = false;
+    }
+
+    if (response.result === '0x') {
+        result.err = 'Address specified is for External Owned Account';
+        result.validated = false;
+    }
+
+    return result;
+};
+
 const getTxInfo = async (options) => {
     const offset = 200;
     return new Observable( async (observer) => {
-        let apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
-        let pathParams = [];
+        const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
+        const pathParams = [];
         let params = {
             module: 'account',
             action: 'txlist',

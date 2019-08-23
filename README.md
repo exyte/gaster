@@ -10,20 +10,25 @@ A CLI to get transactions of the specified smart contract and get some statistic
 npm install
 ```
 
-## Command Line Interface
-ethgasstats can be called from the command line if installed globally (using the -g flag)
+## Using ethgasstats CLI
+###Command Line
 ```bash
-Usage: ethgasstats [options]
+$ ethgasstats <options>
+```
 
 
-Options:
+###Options:
 
-  -a, --address <address>              Smart contract address.
-  -s, --startblock <number>            Start block number. Defaults to smart contract genesis block.
-  -e, --endblock <number>              End block number. Defaults to smart contract last transaction block.
-  -p, --path <path>                    Path and name of the resulting csv file. Defaults to stdout.
-  -r, --ropsten <boolean>              Use Ropsten (testnet). Defaults to false.
-  -m, --mongo <boolean>                Use MongoDB to save transactions' data. Defaults to false.
+*  `-a`, `--address`: *[string]* Smart contract address. 
+*  `-s`, `--startblock`: *[number, optional]* Start block number. Default: smart contract genesis block.
+*  `-e`, `--endblock`: *[number, optional]* End block number. Default: smart contract last transaction block.
+*  `-p`, `--path`: *[string, optional]* Directory of the resulting csv files. Defaults to cwd.
+*  `-r`, `--ropsten`: *[boolean, optional]* Use Ropsten (testnet).. Defaults to false.
+*  `-m`, `--mongo`: *[boolean, optional]* Use MongoDB to save transactions' data. Defaults to false.
+  
+###Example:
+```bash
+ethgasstats --address 0x4Ca389fAAd549aDd7124f2B215266cE162D964e7 -endblock 6050576 --ropsten
 ```
 
 ## Contributing

@@ -2,7 +2,7 @@ import arg from 'arg';
 import inquirer from 'inquirer';
 import { getGasStats } from './main';
 
-function parseArgumentsIntoOptions(rawArgs) {
+const parseArgumentsIntoOptions = (rawArgs) => {
     const args = arg(
         {
             '--address': String,
@@ -31,16 +31,16 @@ function parseArgumentsIntoOptions(rawArgs) {
         ropsten: args['--ropsten'] || false,
         mongo: args['--mongo'] || false
     }
-}
+};
 
-async function promptForMissingOptions(options) {
+const promptForMissingOptions = async (options) => {
     const questions = [];
 
     if (!options.address) {
         questions.push({
             type: 'input',
             name: 'address',
-            message: 'Please enter smart-contract address to use'
+            message: 'Please enter smart contract address to use'
         })
     }
 
@@ -50,11 +50,11 @@ async function promptForMissingOptions(options) {
         ...options,
         ...answers
     }
-}
+};
 
-export async function cli(args) {
+export const cli = async (args) => {
     let options = parseArgumentsIntoOptions(args);
     options = await promptForMissingOptions(options);
 
     await getGasStats(options);
-}
+};

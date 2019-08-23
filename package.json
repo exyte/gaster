@@ -1,0 +1,35 @@
+{
+  "name": "ethgasstats",
+  "version": "1.0.0",
+  "description": "A CLI to get transactions of the specified smart contract and get some statistics",
+  "main": "index.js",
+  "bin": {
+    "@koteld/ethgasstats": "bin/ethgasstats",
+    "ethgasstats": "bin/ethgasstats"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cli",
+    "ethereum",
+    "smart-contract",
+    "gas"
+  ],
+  "author": "koteld",
+  "license": "MIT",
+  "dependencies": {
+    "arg": "^4.1.1",
+    "esm": "^3.2.25",
+    "execa": "^2.0.3",
+    "inquirer": "^6.5.0",
+    "json2csv": "^4.5.2",
+    "listr": "^0.14.3",
+    "mongodb": "^3.3.0",
+    "node-fetch": "^2.6.0",
+    "rxjs": "^6.5.2"
+  }
+}

@@ -11,13 +11,13 @@ npm install
 ```
 
 ## Using ethgasstats CLI
-###Command Line
+### Command Line
 ```bash
 $ ethgasstats <options>
 ```
 
 
-###Options:
+### Options:
 
 *  `-a`, `--address`: *[string]* Smart contract address. 
 *  `-s`, `--startblock`: *[number, optional]* Start block number. Default: smart contract genesis block.
@@ -26,7 +26,7 @@ $ ethgasstats <options>
 *  `-r`, `--ropsten`: *[boolean, optional]* Use Ropsten (testnet).. Defaults to false.
 *  `-m`, `--mongo`: *[boolean, optional]* Use MongoDB to save transactions' data. Defaults to false.
   
-###Example:
+### Example:
 ```bash
 ethgasstats --address 0x4Ca389fAAd549aDd7124f2B215266cE162D964e7 -endblock 6050576 --ropsten
 ```

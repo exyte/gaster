@@ -22,26 +22,29 @@ const apiHttpRequest = async ({ apiUrl, pathParams = [], params: queryParams = {
 
 const getAPI = async (apiURL, pathParams, queryParams) => {
     const apiEndpoint = `${apiURL}/${pathParams.join('/')}`;
-    const response =  await fetch(
+    const response = await fetch(
         buildUrl(apiEndpoint, queryParams), {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         }
-    ).catch((err) => {
+    );
+
+    return await response.json().catch((err) => {
         throw new Error(`Error (get API): ${err}, endpoint: ${apiEndpoint}`);
     });
-    return await response.json();
 };
 
 const postAPI = async (apiURL, pathParams, queryParams) => {
     const apiEndpoint = `${apiURL}/${pathParams.join('/')}`;
-    return await fetch(
+    const response = await fetch(
         `${apiEndpoint}`, {
             method: 'POST',
             body: JSON.stringify(queryParams),
             headers: { 'Content-Type': 'application/json' }
         }
-    ).catch((err) => {
+    );
+
+    return await response.json().catch((err) => {
         throw new Error(`Error (post API): ${err}, endpoint: ${apiEndpoint}`);
     });
 };

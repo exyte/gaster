@@ -24,12 +24,14 @@
   "dependencies": {
     "arg": "^4.1.1",
     "esm": "^3.2.25",
+    "ethereum-input-data-decoder": "^0.2.0",
     "execa": "^2.0.3",
     "inquirer": "^6.5.0",
     "json2csv": "^4.5.2",
     "listr": "^0.14.3",
     "mongodb": "^3.3.0",
     "node-fetch": "^2.6.0",
-    "rxjs": "^6.5.2"
+    "rxjs": "^6.5.2",
+    "winston": "^3.2.1"
   }
 }

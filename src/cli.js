@@ -6,6 +6,7 @@ const parseArgumentsIntoOptions = (rawArgs) => {
     const args = arg(
         {
             '--address': String,
+            '--abi': String,
             '--startblock': Number,
             '--endblock': Number,
             '--path': String,
@@ -25,6 +26,7 @@ const parseArgumentsIntoOptions = (rawArgs) => {
 
     return {
         address: args['--address'] || false,
+        abi: args['--abi'] || false,
         startblock: args['--startblock'] || false,
         endblock: args['--endblock'] || false,
         path: args['--path'] || false,

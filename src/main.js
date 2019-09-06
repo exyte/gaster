@@ -1,5 +1,6 @@
 const InputDataDecoder = require('ethereum-input-data-decoder');
 const fs = require('fs');
+const isValid = require('is-valid-path');
 const { parseAsync } = require('json2csv');
 const Listr = require('listr');
 const { MongoClient } = require('mongodb');
@@ -259,12 +260,10 @@ const getAbis = async (options) => {
     return new Observable( async (observer) => {
         if (options.abi) {
             observer.next('Parsing input parameters');
-            if (options.abi.length <= 250) {
+
+            if(isValid(options.abi)) {
                 try {
-                    const access = await fs.promises.access(options.abi);
-                    if (access) {
-                        options.abi = fs.readFileSync(options.abi);
-                    }
+                    options.abi = fs.readFileSync(options.abi);
                 } catch (err) {
                     logger.error(`Error occurred on reading abi file: ${err}`);
                     options.abi = '[]';

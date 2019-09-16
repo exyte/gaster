@@ -540,4 +540,4 @@ const aggregateData = async (options) => {
     })
 };
 
-module.exports = { getGasStats };
+module.exports = { getGasStats, validateContractAddress };

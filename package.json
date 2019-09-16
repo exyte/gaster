@@ -11,7 +11,7 @@
     "access": "public"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha"
   },
   "keywords": [
     "cli",
@@ -33,5 +33,8 @@
     "node-fetch": "^2.6.0",
     "rxjs": "^6.5.2",
     "winston": "^3.2.1"
+  },
+  "devDependencies": {
+    "mocha": "^6.2.0"
   }
 }

@@ -44,6 +44,7 @@ const getGasStats = async (options) => {
     this.itxs = [];
     this.addresses = new Set();
     this.abis = new Map();
+    this.features = [];
 
     if (!options.address) {
         console.error('Smart contract address is not specified!');
@@ -305,7 +306,7 @@ const getAbis = async (options) => {
         let promises = [];
 
         this.addresses.forEach(async (address) => {
-            if (this.abis.has(address)) {
+            if (this.abis.has(address.toLowerCase())) {
                 return;
             }
             observer.next(`Getting abi for ${address}`);
@@ -384,8 +385,96 @@ const prepareTxsData = async function () {
         const item = this.abis.get(tx.contractAddress.toLowerCase());
         if (item && item.decoder) {
             tx.input = item.decoder.decodeData(tx.input);
+            addFeatures(tx, tx.input);
+            tx.inputs = tx.input.inputs;
+            tx.method = tx.input.method;
+            tx.types = tx.input.types;
+            tx.names = tx.input.names;
         }
     });
+};
+
+const addFeatures = (data, input) => {
+    const re = /(\w+)(\[])/;
+    input.types.forEach((type, index) => {
+        let typeParts = type.split(re);
+
+        //fixme
+        typeParts = typeParts.filter((el) => {
+            return el !== '';
+        });
+
+        if (typeParts.length > 1 && typeParts[1] === '[]') {
+            this.features.addUnique(`arg_${input.names[index]}_length`);
+            data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
+            if (typeParts[0].match('int') !== null) {
+                this.features.addUnique(`arg_${input.names[index]}_min`);
+                data[`arg_${input.names[index]}_min`] = Math.min(...input.inputs[index]);
+                this.features.addUnique(`arg_${data.names[index]}_max`);
+                data[`arg_${input.names[index]}_max`] = Math.max(...input.inputs[index]);
+            }
+            if (typeParts[0].match('string') !== null || typeParts[0].match('byte') !== null || typeParts[0].match('hex') !== null) {
+                const strLenArr = input.inputs[index].map((str) => {
+                    return str.length;
+                });
+                this.features.addUnique(`arg_${input.names[index]}_minLength`);
+                data[`arg_${input.names[index]}_minLength`] = Math.min(...strLenArr);
+                this.features.addUnique(`arg_${input.names[index]}_maxLength`);
+                data[`arg_${input.names[index]}_maxLength`] = Math.max(...strLenArr);
+
+                let numArray = input.inputs[index].map((str) => {
+                    return isNaN ? false : Number(str);
+                });
+
+                numArray = numArray.filter((el) => {
+                    return el;
+                });
+
+                if (numArray.length) {
+                    this.features.addUnique(`arg_${input.names[index]}_min`);
+                    data[`arg_${input.names[index]}_min`] = Math.min(...numArray);
+                    this.features.addUnique(`arg_${input.names[index]}_max`);
+                    data[`arg_${input.names[index]}_max`] = Math.max(...numArray);
+                }
+            }
+            return;
+        }
+
+        if (typeParts[0].match('byte') !== null) {
+            this.features.addUnique(`arg_${input.names[index]}_length`);
+            data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
+        }
+
+        if (typeParts[0].match('string') !== null) {
+            this.features.addUnique(`arg_${input.names[index]}_length`);
+            data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
+
+            if(input.inputs[index] && !isNaN(input.inputs[index])) {
+                this.features.addUnique(`arg_${input.names[index]}_num`);
+                data[`arg_${input.names[index]}_num`] = input.inputs[index];
+            }
+        }
+
+        if (typeParts[0].match('hex') !== null) {
+            this.features.addUnique(`arg_${input.names[index]}_length`);
+            data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
+        }
+
+        if (typeParts[0].match('int') !== null) {
+            this.features.addUnique(`arg_${input.names[index]}`);
+            data[`arg_${input.names[index]}`] = input.inputs[index];
+        }
+
+        if (typeParts[0].match('bool') !== null) {
+            this.features.addUnique(`arg_${input.names[index]}`);
+            data[`arg_${input.names[index]}`] = input.inputs[index] ? 1 : 0;
+        }
+
+        if (typeParts[0].match('address') !== null) {
+            this.features.addUnique(`arg_${input.names[index]}`);
+            data[`arg_${input.names[index]}`] = Number(`0x${input.inputs[index]}`);
+        }
+    })
 };
 
 const persistTxsData = async function (options) {
@@ -431,12 +520,17 @@ const persistTxsData = async function (options) {
                 },
                 'from',
                 'input',
+                'method',
+                'types',
+                'inputs',
+                'names',
                 'hash',
                 {
                     label: 'timeStamp',
                     value: (row, field) => Number(row[field.label]),
                     default: 'NULL'
-                }
+                },
+                ...this.features
             ];
             const opts = { fields };
             let promises = [];
@@ -538,5 +632,13 @@ const aggregateData = async (options) => {
         });
     })
 };
+
+if (typeof(Array.prototype.addUnique) !== 'function') {
+    Array.prototype.addUnique = function(el) {
+        if (!this.includes(el)) {
+            this.push(el);
+        }
+    };
+}
 
 module.exports = { getGasStats, validateContractAddress };

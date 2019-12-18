@@ -27,7 +27,6 @@ $ ethgasstats <options>
 *  `-e`, `--endblock`: *[number, optional]* End block number. Default: smart contract last transaction block.
 *  `-p`, `--path`: *[string, optional]* Directory of the resulting csv files. Defaults to cwd.
 *  `-r`, `--ropsten`: *[boolean, optional]* Use Ropsten (testnet). Defaults to false.
-*  `-m`, `--mongo`: *[boolean, optional]* Use MongoDB to save transactions' data. Defaults to false.
 
 ### ABI JSON Format:
 

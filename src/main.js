@@ -3,7 +3,6 @@ const fs = require('fs');
 const isValid = require('is-valid-path');
 const { parseAsync } = require('json2csv');
 const Listr = require('listr');
-const { MongoClient } = require('mongodb');
 const { Observable} = require('rxjs');
 const {
     HttpRequestMethod,
@@ -13,13 +12,6 @@ const { createLogger, format, transports } = require('winston');
 
 const ethApiUrl = 'https://api.etherscan.io/api';
 const ethRopstenApiUrl = 'https://api-ropsten.etherscan.io/api';
-
-// MongoDB parameters
-const url = 'mongodb://localhost:27017';
-const dbName = 'gasStats';
-const collectionName = 'gasUsed';
-let db = false;
-let docs = false;
 
 const logger = createLogger({
     level: 'info',
@@ -62,13 +54,6 @@ const getGasStats = async (options) => {
 
     const tasks = new Listr([
         {
-            title: 'Connecting to MongoDB',
-            task: () => {
-                return connectToDB(options);
-            },
-            enabled: () => options.mongo
-        },
-        {
             title: 'Fetching transactions',
             task: async () => {
                 return getTxInfo.call(this, options);
@@ -103,13 +88,6 @@ const getGasStats = async (options) => {
             task: async () => {
                 return persistTxsData.call(this, options);
             }
-        },
-        {
-            title: 'Getting stats',
-            task: async () => {
-                return aggregateData(options)
-            },
-            enabled: () => options.mongo
         }
     ]);
 
@@ -484,153 +462,85 @@ const persistTxsData = async function (options) {
         }
 
         observer.next('Starting to persist transactions\' data');
-        if (options.mongo) {
-            this.txs.forEach(function(tx) {
-                tx.gasUsed = Number(tx.gasUsed);
-            });
-            await db.collection(collectionName).insertMany(this.txs);
-            observer.next('Done!');
-            observer.complete();
-        } else {
-            const fields = [
-                {
-                    label: 'address',
-                    value: 'to',
-                    default: 'NULL'
-                },
-                {
-                    label: 'blockNumber',
-                    value: (row, field) => Number(row[field.label]),
-                    default: 'NULL'
-                },
-                {
-                    label: 'gasUsed',
-                    value: (row, field) => Number(row[field.label]),
-                    default: 'NULL'
-                },
-                {
-                    label: 'gasPrice',
-                    value: (row, field) => Number(row[field.label]),
-                    default: 'NULL'
-                },
-                {
-                    label: 'gas',
-                    value: (row, field) => Number(row[field.label]),
-                    default: 'NULL'
-                },
-                'from',
-                'input',
-                'method',
-                'types',
-                'inputs',
-                'names',
-                'hash',
-                {
-                    label: 'timeStamp',
-                    value: (row, field) => Number(row[field.label]),
-                    default: 'NULL'
-                },
-                ...this.features
-            ];
-            const opts = { fields };
-            let promises = [];
 
-            try {
-                const chunk = 1000;
-                const quantity = Math.ceil(this.txs.length / chunk);
-                for (let i = 0; i < quantity; ++i) {
-                    const ttxs = this.txs.slice(i * chunk, (i + 1) * chunk);
+        const fields = [
+            {
+                label: 'address',
+                value: 'to',
+                default: 'NULL'
+            },
+            {
+                label: 'blockNumber',
+                value: (row, field) => Number(row[field.label]),
+                default: 'NULL'
+            },
+            {
+                label: 'gasUsed',
+                value: (row, field) => Number(row[field.label]),
+                default: 'NULL'
+            },
+            {
+                label: 'gasPrice',
+                value: (row, field) => Number(row[field.label]),
+                default: 'NULL'
+            },
+            {
+                label: 'gas',
+                value: (row, field) => Number(row[field.label]),
+                default: 'NULL'
+            },
+            'from',
+            'input',
+            'method',
+            'types',
+            'inputs',
+            'names',
+            'hash',
+            {
+                label: 'timeStamp',
+                value: (row, field) => Number(row[field.label]),
+                default: 'NULL'
+            },
+            ...this.features
+        ];
+        const opts = { fields };
+        let promises = [];
 
-                    const fname = `${options.address}_${i}.csv`;
-                    const fpath = `${options.path ? options.path : process.cwd()}/${fname}`;
+        try {
+            const chunk = 1000;
+            const quantity = Math.ceil(this.txs.length / chunk);
+            for (let i = 0; i < quantity; ++i) {
+                const ttxs = this.txs.slice(i * chunk, (i + 1) * chunk);
 
-                    promises.push(new Promise((resolve, reject) => parseAsync(ttxs, opts)
-                        .then(async (csv) => {
-                            let writeStream = fs.createWriteStream(fpath);
-                            writeStream.write(csv, 'utf-8');
+                const fname = `${options.address}_${i}.csv`;
+                const fpath = `${options.path ? options.path : process.cwd()}/${fname}`;
 
-                            writeStream.on('finish', () => {
-                                observer.next(`${fname}: done!`);
-                                resolve();
-                            });
+                promises.push(new Promise((resolve, reject) => parseAsync(ttxs, opts)
+                    .then(async (csv) => {
+                        let writeStream = fs.createWriteStream(fpath);
+                        writeStream.write(csv, 'utf-8');
 
-                            writeStream.end();
-                        })
-                        .catch(err => {
-                            reject(`An error occurred on txs data processing to csv: ${err}; file: ${fpath}`);
-                        })));
+                        writeStream.on('finish', () => {
+                            observer.next(`${fname}: done!`);
+                            resolve();
+                        });
 
-                    Promise.all(promises).then(() => {
-                        observer.complete();
-                    }).catch((err) => {
-                        observer.error(new Error(`An error occurred on txs' data processing to csv: ${err}`));
+                        writeStream.end();
                     })
-                }
-            } catch (err) {
-                observer.error(new Error(`An error occurred on data persisting: ${err}`));
+                    .catch(err => {
+                        reject(`An error occurred on txs data processing to csv: ${err}; file: ${fpath}`);
+                    })));
+
+                Promise.all(promises).then(() => {
+                    observer.complete();
+                }).catch((err) => {
+                    observer.error(new Error(`An error occurred on txs' data processing to csv: ${err}`));
+                })
             }
+        } catch (err) {
+            observer.error(new Error(`An error occurred on data persisting: ${err}`));
         }
     });
-};
-
-const connectToDB = async (options) => {
-    return new Observable( async (observer) => {
-        observer.next('Connecting to DB');
-        MongoClient.connect(url,
-            {
-                useNewUrlParser: true,
-                useUnifiedTopology: true
-            },
-            async (err, client) => {
-                if (err) {
-                    console.log(err);
-                    return false;
-                }
-                db = client.db(dbName);
-
-                const query = {to: options.address};
-
-                await db.collection(collectionName).deleteMany(query);
-
-                observer.next('Connected!');
-                observer.complete();
-            });
-    })
-};
-
-const aggregateData = async (options) => {
-    return new Observable( async (observer) => {
-        observer.next('Calculating');
-        db.collection(collectionName).aggregate([
-            {
-                $match:
-                    {
-                        "to": options.address
-                    }
-            },
-            {
-                $group:
-                    {
-                        _id: '$to',
-                        sum: {$sum: '$gasUsed'},
-                        avg: {$avg: '$gasUsed'},
-                        max: {$max: '$gasUsed'},
-                        min: {$min: '$gasUsed'}
-                    }
-            }
-        ]).toArray(function (err, _docs) {
-            if (err) {
-                observer.next(`Error: ${err}`);
-                observer.complete();
-                return;
-            }
-
-            observer.next('Done!');
-            observer.complete();
-
-            docs = _docs;
-        });
-    })
 };
 
 if (typeof(Array.prototype.addUnique) !== 'function') {

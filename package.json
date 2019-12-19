@@ -30,7 +30,6 @@
     "is-valid-path": "^0.1.1",
     "json2csv": "^4.5.2",
     "listr": "^0.14.3",
-    "mongodb": "^3.3.0",
     "node-fetch": "^2.6.0",
     "rxjs": "^6.5.2",
     "winston": "^3.2.1"

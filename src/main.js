@@ -377,6 +377,9 @@ const addFeatures = (data, input) => {
     input.types.forEach((type, index) => {
         let typeParts = type.split(re);
 
+        this.features.addUnique(`arg_${input.names[index]}`);
+        data[`arg_${input.names[index]}`] = input.inputs[index];
+
         //fixme
         typeParts = typeParts.filter((el) => {
             return el !== '';
@@ -433,25 +436,25 @@ const addFeatures = (data, input) => {
             }
         }
 
-        if (typeParts[0].match('hex') !== null) {
-            this.features.addUnique(`arg_${input.names[index]}_length`);
-            data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
-        }
+        // if (typeParts[0].match('hex') !== null) {
+        //     this.features.addUnique(`arg_${input.names[index]}_length`);
+        //     data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
+        // }
 
-        if (typeParts[0].match('int') !== null) {
-            this.features.addUnique(`arg_${input.names[index]}`);
-            data[`arg_${input.names[index]}`] = input.inputs[index];
-        }
-
-        if (typeParts[0].match('bool') !== null) {
-            this.features.addUnique(`arg_${input.names[index]}`);
-            data[`arg_${input.names[index]}`] = input.inputs[index] ? 1 : 0;
-        }
-
-        if (typeParts[0].match('address') !== null) {
-            this.features.addUnique(`arg_${input.names[index]}`);
-            data[`arg_${input.names[index]}`] = Number(`0x${input.inputs[index]}`);
-        }
+        // if (typeParts[0].match('int') !== null) {
+        //     this.features.addUnique(`arg_${input.names[index]}`);
+        //     data[`arg_${input.names[index]}`] = input.inputs[index];
+        // }
+        //
+        // if (typeParts[0].match('bool') !== null) {
+        //     this.features.addUnique(`arg_${input.names[index]}`);
+        //     data[`arg_${input.names[index]}`] = input.inputs[index] ? 1 : 0;
+        // }
+        //
+        // if (typeParts[0].match('address') !== null) {
+        //     this.features.addUnique(`arg_${input.names[index]}`);
+        //     data[`arg_${input.names[index]}`] = Number(`0x${input.inputs[index]}`);
+        // }
     })
 };
 

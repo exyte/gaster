@@ -80,7 +80,7 @@ const getGasStats = async (options) => {
         {
             title: 'Preparing data',
             task: async () => {
-                return prepareTxsData.call(this);
+                return prepareTxsData.call(this, options);
             }
         },
         {
@@ -358,7 +358,7 @@ const getAbi = async (address, testnet) => {
     return result;
 };
 
-const prepareTxsData = async function () {
+const prepareTxsData = async function (options) {
     this.txs.forEach((tx) => {
         const item = this.abis.get(tx.contractAddress.toLowerCase());
         if (item && item.decoder) {
@@ -370,6 +370,21 @@ const prepareTxsData = async function () {
             tx.names = tx.input.names;
         }
     });
+    if (options.trace) {
+        // get organizations' creation dates
+        this.features.addUnique('arg__organization_timeStamp');
+        const distinctOrganizations = [...new Set(this.txs.map(tx => `0x${tx['arg__organization'].toLowerCase()}`))];
+        const organizationsCreationDates = await distinctOrganizations.reduce(async (pendingResult, organizationAddress) => {
+            const previousResult = await pendingResult;
+            const creationDate = await getContractCreationDate(organizationAddress, options);
+            const result = {
+                [organizationAddress]: creationDate,
+                ...previousResult
+            };
+            return result
+        }, {});
+        this.txs.forEach(tx => tx['arg__organization_timeStamp'] = Number(organizationsCreationDates[`0x${tx['arg__organization'].toLowerCase()}`]))
+    }
 };
 
 const addFeatures = (data, input) => {
@@ -435,26 +450,6 @@ const addFeatures = (data, input) => {
                 data[`arg_${input.names[index]}_num`] = input.inputs[index];
             }
         }
-
-        // if (typeParts[0].match('hex') !== null) {
-        //     this.features.addUnique(`arg_${input.names[index]}_length`);
-        //     data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
-        // }
-
-        // if (typeParts[0].match('int') !== null) {
-        //     this.features.addUnique(`arg_${input.names[index]}`);
-        //     data[`arg_${input.names[index]}`] = input.inputs[index];
-        // }
-        //
-        // if (typeParts[0].match('bool') !== null) {
-        //     this.features.addUnique(`arg_${input.names[index]}`);
-        //     data[`arg_${input.names[index]}`] = input.inputs[index] ? 1 : 0;
-        // }
-        //
-        // if (typeParts[0].match('address') !== null) {
-        //     this.features.addUnique(`arg_${input.names[index]}`);
-        //     data[`arg_${input.names[index]}`] = Number(`0x${input.inputs[index]}`);
-        // }
     })
 };
 
@@ -544,6 +539,32 @@ const persistTxsData = async function (options) {
             observer.error(new Error(`An error occurred on data persisting: ${err}`));
         }
     });
+};
+
+const getContractCreationDate = async function (address, options) {
+    const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
+    const pathParams = [];
+    let params = {
+        module: 'account',
+        action: 'txlistinternal',
+        address: address,
+        sort: 'asc',
+        page: 1,
+    };
+    const method = HttpRequestMethod.GET;
+
+    const response = await apiHttpRequest({
+        apiUrl,
+        pathParams,
+        params,
+        method
+    });
+
+    if (!response.result.length) {
+        return 0
+    }
+    const result = response.result[0];
+    return result.timeStamp
 };
 
 if (typeof(Array.prototype.addUnique) !== 'function') {

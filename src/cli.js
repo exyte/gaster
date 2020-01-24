@@ -11,6 +11,7 @@ const parseArgumentsIntoOptions = (rawArgs) => {
             '--endblock': Number,
             '--path': String,
             '--ropsten': Boolean,
+            '--trace' : Boolean,
             '-a': '--address',
             '-s': '--startblock',
             '-e': '--endblock',
@@ -28,7 +29,8 @@ const parseArgumentsIntoOptions = (rawArgs) => {
         startblock: args['--startblock'] || false,
         endblock: args['--endblock'] || false,
         path: args['--path'] || false,
-        ropsten: args['--ropsten'] || false
+        ropsten: args['--ropsten'] || false,
+        trace: args['--trace'] || false,
     }
 };
 

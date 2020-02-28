@@ -24,7 +24,7 @@
   "dependencies": {
     "arg": "^4.1.1",
     "esm": "^3.2.25",
-    "ethereum-input-data-decoder": "^0.2.0",
+    "ethereum-input-data-decoder": "^0.3.0",
     "execa": "^2.0.3",
     "inquirer": "^6.5.0",
     "is-valid-path": "^0.1.1",

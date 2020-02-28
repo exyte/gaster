@@ -5,7 +5,9 @@ const HttpRequestMethod = {
     POST: 'POST'
 };
 
-const apiHttpRequest = async ({ apiUrl, pathParams = [], params: queryParams = {}, method }) => {
+const apikey = 'NGU6TY7RCXUTNM6SJA27721VV4V71TE4WW';
+
+const apiHttpRequest = async ({ apiUrl, pathParams = [], params = {}, method }) => {
     let httpRequest;
     switch (method) {
         case HttpRequestMethod.GET:
@@ -17,6 +19,10 @@ const apiHttpRequest = async ({ apiUrl, pathParams = [], params: queryParams = {
         default:
             throw new Error('Error: unsupported API HTTP request');
     }
+    const queryParams = {
+        ...params,
+        apikey,
+    };
     return await httpRequest(apiUrl, pathParams, queryParams);
 };
 

@@ -30,18 +30,15 @@ const logger = createLogger({
 
 
 const getGasStats = async (options) => {
-    this.txs = [];
-    this.itxs = [];
-    this.addresses = new Set();
-    this.abis = new Map();
-    this.features = [];
+    txs = [];
+    itxs = [];
+    abis = new Map();
+    features = [];
 
     if (!options.address) {
         console.error('Smart contract address is not specified!');
         return;
     }
-
-    this.addresses.add(options.address);
 
     const validationResult = await validateContractAddress(options);
 
@@ -50,19 +47,13 @@ const getGasStats = async (options) => {
         return;
     }
 
-    try {
-        await getTxInfo(options, this);
-        await getITxInfo(options, this);
-        await mergeTxInfo(this);
-        await getAbis(options, this);
-        await prepareTxsData(options, this);
-        await persistTxsData(options, this);
-    }
-    catch (err) {
-        process.exit(1)
-    }
-
-    process.exit(0);
+    txs = await getTxInfo(options);
+    itxs = await getITxInfo(options);
+    txs = mergeTxInfo(txs, itxs);
+    addresses = new Set([options.address, ...getAdresses(txs)]);
+    abis = await getAbis(options, addresses);
+    txs = await prepareTxsData(options, txs, abis);
+    await persistTxsData(options, txs);
 };
 
 const validateContractAddress = async (options) => {
@@ -99,7 +90,8 @@ const validateContractAddress = async (options) => {
     return result;
 };
 
-const getTxInfo = async (options, obj) => {
+const getTxInfo = async (options) => {
+    let txs = [];
     const offset = 200;
     const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
     const pathParams = [];
@@ -127,16 +119,16 @@ const getTxInfo = async (options, obj) => {
 
         next = response.result.length === offset;
 
-        obj.txs = obj.txs.concat(response.result);
+        txs = txs.concat(response.result);
         ++params.page;
 
     } while (next);
 
-    obj.txs = obj.txs.filter((tx) => tx.isError === '0' && undefined !== tx.to && tx.to.toLowerCase() === options.address.toLowerCase());
+    return txs.filter((tx) => tx.isError === '0' && undefined !== tx.to && tx.to.toLowerCase() === options.address.toLowerCase());
+};
 
-  };
-
-const getITxInfo = async (options, obj) => {
+const getITxInfo = async (options) => {
+    let itxs = [];
     const offset = 200;
     const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
     const pathParams = [];
@@ -164,37 +156,45 @@ const getITxInfo = async (options, obj) => {
 
         next = response.result.length === offset;
 
-        obj.itxs = obj.itxs.concat(response.result);
+        itxs = itxs.concat(response.result);
         ++params.page;
 
     } while (next);
 
-    obj.itxs = obj.itxs.filter((tx) => tx.isError === '0' && tx.type === 'delegatecall');
+    return itxs.filter((tx) => tx.isError === '0' && tx.type === 'delegatecall');
+};
 
- };
-
-const mergeTxInfo = (obj) => {
-    obj.itxs.forEach((itx) => {
-        const tx = obj.txs.find(tx => tx.hash === itx.hash);
+const mergeTxInfo = (txs, itxs) => {
+    let mergedTxs = [...txs];
+    itxs.forEach((itx) => {
+        const tx = mergedTxs.find(tx => tx.hash === itx.hash);
         if (undefined !== tx) {
             tx.contractAddress = itx.to;
         }
     });
 
-    obj.txs.forEach((tx) => {
+    mergedTxs.forEach((tx) => {
         if(!tx.contractAddress) {
             tx.contractAddress = tx.to;
         }
     });
 
-    obj.txs.forEach((tx) => {
-        if (!obj.addresses.has(tx.contractAddress.toLowerCase())) {
-            obj.addresses.add(tx.contractAddress.toLowerCase());
-        }
-    });
+    return mergedTxs;
 };
 
-const getAbis = async (options, obj) => {
+const getAdresses = (txs) => {
+    let addresses = new Set();
+    txs.forEach((tx) => {
+        if (!addresses.has(tx.contractAddress.toLowerCase())) {
+            addresses.add(tx.contractAddress.toLowerCase());
+        }
+    });
+
+    return addresses;
+}
+
+const getAbis = async (options, addresses) => {
+    let resultAbis = new Map();
     if (options.abi) {
 
         if(isValid(options.abi)) {
@@ -216,7 +216,7 @@ const getAbis = async (options, obj) => {
                     return undefined;
                 }
             })();
-            obj.abis.set(options.address.toLowerCase(), {
+            resultAbis.set(options.address.toLowerCase(), {
                 abi: abis,
                 decoder
             });
@@ -230,7 +230,7 @@ const getAbis = async (options, obj) => {
                         return undefined;
                     }
                 })();
-                obj.abis.set(item.address.toLowerCase(), {
+                resultAbis.set(item.address.toLowerCase(), {
                     abi: item.abi,
                     decoder
                 });
@@ -240,8 +240,8 @@ const getAbis = async (options, obj) => {
 
     let promises = [];
 
-    obj.addresses.forEach(async (address) => {
-        if (obj.abis.has(address.toLowerCase())) {
+    addresses.forEach(async (address) => {
+        if (resultAbis.has(address.toLowerCase())) {
             return;
         }
        
@@ -260,7 +260,7 @@ const getAbis = async (options, obj) => {
                         return undefined;
                     }
                 })();
-                obj.abis.set(address, {
+                resultAbis.set(address, {
                     abi,
                     decoder
                 });
@@ -272,6 +272,8 @@ const getAbis = async (options, obj) => {
     });
 
     await Promise.all(promises);
+
+    return resultAbis;
 };
 
 const getAbi = async (address, testnet) => {
@@ -310,12 +312,17 @@ const getAbi = async (address, testnet) => {
     return result;
 };
 
-const prepareTxsData = async function (options, obj) {
-    obj.txs.forEach((tx) => {
-        const item = obj.abis.get(tx.contractAddress.toLowerCase());
+const prepareTxsData = async function (options, txs, abis) {
+    let preparedTxs = [...txs];
+    let features = [];
+    preparedTxs.forEach((tx) => {
+        const item = abis.get(tx.contractAddress.toLowerCase());
         if (item && item.decoder) {
             tx.input = item.decoder.decodeData(tx.input);
-            obj.features.concat(getFeatures(tx, tx.input));
+            tx['properties'] = tx.input.names.reduce(function(properties, name, index){
+                properties[`arg_${name}`] = tx.input.inputs[index];
+                return properties;
+            }, {});
             tx.inputs = tx.input.inputs;
             tx.method = tx.input.method;
             tx.types = tx.input.types;
@@ -323,8 +330,8 @@ const prepareTxsData = async function (options, obj) {
         }
     });
     if (options.trace) {
-        obj.features.addUnique('arg__organization_timeStamp');
-        const distinctOrganizations = [...new Set(obj.txs.map(tx => `0x${tx['arg__organization'].toLowerCase()}`))];
+        features.addUnique('arg__organization_timeStamp');
+        const distinctOrganizations = [...new Set(preparedTxs.map(tx => `0x${tx['arg__organization'].toLowerCase()}`))];
         const organizationsCreationDates = await distinctOrganizations.reduce(async (pendingResult, organizationAddress) => {
             const previousResult = await pendingResult;
             const creationDate = await getContractCreationDate(organizationAddress, options);
@@ -334,8 +341,10 @@ const prepareTxsData = async function (options, obj) {
             };
             return result
         }, {});
-        obj.txs.forEach(tx => tx['arg__organization_timeStamp'] = Number(organizationsCreationDates[`0x${tx['arg__organization'].toLowerCase()}`]))
+        preparedTxs.forEach(tx => tx['arg__organization_timeStamp'] = Number(organizationsCreationDates[`0x${tx['arg__organization'].toLowerCase()}`]))
     }
+
+    return preparedTxs;
 };
 
 const getFeatures = (data, input) => {
@@ -407,11 +416,10 @@ const getFeatures = (data, input) => {
     return features;
 };
 
-const persistTxsData = async function (options, obj) {
-    if (!obj.txs.length) {
+const persistTxsData = async function (options, txs, features) {
+    if (!txs.length) {
         throw new Error(`There is no transactions to process`);
     }
-
     
     const fields = [
         {
@@ -451,16 +459,16 @@ const persistTxsData = async function (options, obj) {
             value: (row, field) => Number(row[field.label]),
             default: 'NULL'
         },
-        ...obj.features
+        'properties'
     ];
     const opts = { fields };
     let promises = [];
 
     try {
         const chunk = 1000;
-        const quantity = Math.ceil(obj.txs.length / chunk);
+        const quantity = Math.ceil(txs.length / chunk);
         for (let i = 0; i < quantity; ++i) {
-            const ttxs = obj.txs.slice(i * chunk, (i + 1) * chunk);
+            const ttxs = txs.slice(i * chunk, (i + 1) * chunk);
 
             const fname = `${options.address}_${i}.csv`;
             const fpath = `${options.path ? options.path : process.cwd()}/${fname}`;

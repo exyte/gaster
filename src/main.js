@@ -30,10 +30,9 @@ const logger = createLogger({
 
 
 const getGasStats = async (options) => {
-    txs = [];
-    itxs = [];
-    abis = new Map();
-    features = [];
+    let txs = [];
+    let itxs = [];
+    let abis = new Map();
 
     if (!options.address) {
         console.error('Smart contract address is not specified!');
@@ -50,7 +49,7 @@ const getGasStats = async (options) => {
     txs = await getTxInfo(options);
     itxs = await getITxInfo(options);
     txs = mergeTxInfo(txs, itxs);
-    addresses = new Set([options.address, ...getAdresses(txs)]);
+    const addresses = new Set([options.address, ...getAdresses(txs)]);
     abis = await getAbis(options, addresses);
     txs = await prepareTxsData(options, txs, abis);
     await persistTxsData(options, txs);
@@ -348,7 +347,7 @@ const prepareTxsData = async function (options, txs, abis) {
 };
 
 const getFeatures = (data, input) => {
-    let features = new Array();
+    let features = [];
     const re = /(\w+)(\[])/;
     input.types.forEach((type, index) => {
         let typeParts = type.split(re);

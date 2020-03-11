@@ -2,14 +2,8 @@ const InputDataDecoder = require('ethereum-input-data-decoder');
 const fs = require('fs');
 const isValid = require('is-valid-path');
 const { parseAsync } = require('json2csv');
-const {
-    HttpRequestMethod,
-    apiHttpRequest
-} = require('../utils');
 const { createLogger, format, transports } = require('winston');
-
-const ethApiUrl = 'https://api.etherscan.io/api';
-const ethRopstenApiUrl = 'https://api-ropsten.etherscan.io/api';
+const etherscan = require('./etherscan.api');
 
 const logger = createLogger({
     level: 'info',
@@ -34,20 +28,7 @@ const validateContractAddress = async (options) => {
         err: ''
     };
 
-    const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
-    const pathParams = [];
-    const params = {
-        module: 'proxy',
-        action: 'eth_getCode',
-        address: options.address
-    };
-    const method = HttpRequestMethod.GET;
-    const response = await apiHttpRequest({
-        apiUrl,
-        pathParams,
-        params,
-        method
-    });
+    const response = await etherscan.validateContractAddress(options);
 
     if (response.error) {
         result.err = 'Address specified is invalid';
@@ -63,75 +44,13 @@ const validateContractAddress = async (options) => {
 };
 
 const getTxInfo = async (options) => {
-    let txs = [];
-    const offset = 200;
-    const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
-    const pathParams = [];
-    let params = {
-        module: 'account',
-        action: 'txlist',
-        address: options.address,
-        startblock: options.startblock,
-        endblock: options.endblock,
-        sort: 'asc',
-        page: 1,
-        offset
-    };
-    const method = HttpRequestMethod.GET;
-
-    let next = false;
-
-    do {
-        const response = await apiHttpRequest({
-            apiUrl,
-            pathParams,
-            params,
-            method
-        });
-
-        next = response.result.length === offset;
-
-        txs = txs.concat(response.result);
-        ++params.page;
-
-    } while (next);
+    let txs = await etherscan.getTxInfo(options);
 
     return txs.filter((tx) => tx.isError === '0' && undefined !== tx.to && tx.to.toLowerCase() === options.address.toLowerCase());
 };
 
 const getITxInfo = async (options) => {
-    let itxs = [];
-    const offset = 200;
-    const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
-    const pathParams = [];
-    let params = {
-        module: 'account',
-        action: 'txlistinternal',
-        address: options.address,
-        startblock: options.startblock,
-        endblock: options.endblock,
-        sort: 'asc',
-        page: 1,
-        offset
-    };
-    const method = HttpRequestMethod.GET;
-
-    let next = false;
-
-    do {
-        const response = await apiHttpRequest({
-            apiUrl,
-            pathParams,
-            params,
-            method
-        });
-
-        next = response.result.length === offset;
-
-        itxs = itxs.concat(response.result);
-        ++params.page;
-
-    } while (next);
+    let itxs = await etherscan.getITxInfo(options);
 
     return itxs.filter((tx) => tx.isError === '0' && tx.type === 'delegatecall');
 };
@@ -254,20 +173,7 @@ const getAbi = async (address, testnet) => {
         err: ''
     };
 
-    const apiUrl = testnet ? ethRopstenApiUrl: ethApiUrl;
-    const pathParams = [];
-    const params = {
-        module: 'contract',
-        action: 'getabi',
-        address
-    };
-    const method = HttpRequestMethod.GET;
-    const response = await apiHttpRequest({
-        apiUrl,
-        pathParams,
-        params,
-        method
-    });
+    const response = await etherscan.getAbi(testnet, address);
 
     result.abi = response.result;
 
@@ -327,12 +233,12 @@ const getFeatures = (data, input) => {
 
         features.addUnique(`arg_${input.names[index]}`);
         data[`arg_${input.names[index]}`] = input.inputs[index];
-
+        
         //fixme
         typeParts = typeParts.filter((el) => {
             return el !== '';
         });
-
+        
         if (typeParts.length > 1 && typeParts[1] === '[]') {
             features.addUnique(`arg_${input.names[index]}_length`);
             data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
@@ -350,15 +256,15 @@ const getFeatures = (data, input) => {
                 data[`arg_${input.names[index]}_minLength`] = Math.min(...strLenArr);
                 features.addUnique(`arg_${input.names[index]}_maxLength`);
                 data[`arg_${input.names[index]}_maxLength`] = Math.max(...strLenArr);
-
+                
                 let numArray = input.inputs[index].map((str) => {
                     return isNaN ? false : Number(str);
                 });
-
+                
                 numArray = numArray.filter((el) => {
                     return el;
                 });
-
+                
                 if (numArray.length) {
                     features.addUnique(`arg_${input.names[index]}_min`);
                     data[`arg_${input.names[index]}_min`] = Math.min(...numArray);
@@ -368,23 +274,22 @@ const getFeatures = (data, input) => {
             }
             return;
         }
-
+        
         if (typeParts[0].match('byte') !== null) {
             features.addUnique(`arg_${input.names[index]}_length`);
             data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
         }
-
+        
         if (typeParts[0].match('string') !== null) {
             features.addUnique(`arg_${input.names[index]}_length`);
             data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
-
-            if(input.inputs[index] && !isNaN(input.inputs[index])) {
+            
+            if (input.inputs[index] && !isNaN(input.inputs[index])) {
                 features.addUnique(`arg_${input.names[index]}_num`);
                 data[`arg_${input.names[index]}_num`] = input.inputs[index];
             }
         }
-    })
-
+    });
     return features;
 };
 
@@ -468,23 +373,7 @@ const persistTxsData = async function (options, txs, features) {
 };
 
 const getContractCreationDate = async function (address, options) {
-    const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
-    const pathParams = [];
-    let params = {
-        module: 'account',
-        action: 'txlistinternal',
-        address: address,
-        sort: 'asc',
-        page: 1,
-    };
-    const method = HttpRequestMethod.GET;
-
-    const response = await apiHttpRequest({
-        apiUrl,
-        pathParams,
-        params,
-        method
-    });
+    const response = await etherscan.getContractCreationDate(options, address);
 
     if (!response.result.length) {
         return 0

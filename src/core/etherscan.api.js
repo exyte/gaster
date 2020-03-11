@@ -3,11 +3,16 @@ const {
     apiHttpRequest
 } = require('../utils');
 
-const ethApiUrl = 'https://api.etherscan.io/api';
-const ethRopstenApiUrl = 'https://api-ropsten.etherscan.io/api';
+const apiUrls = {
+    mainnet: 'https://api.etherscan.io/api',
+    ropsten: 'https://api-ropsten.etherscan.io/api',
+    kovan: 'https://api-kovan.etherscan.io/api',
+    rinkeby: 'https://api-rinkeby.etherscan.io/api',
+    goerly: 'https://api-goerli.etherscan.io/api'
+  }
 
 async function getContractCreationDate(options, address) {
-    const apiUrl = options.ropsten ? ethRopstenApiUrl : ethApiUrl;
+    const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;
     const pathParams = [];
     let params = {
         module: 'account',
@@ -27,7 +32,7 @@ async function getContractCreationDate(options, address) {
 }
 
 async function getAbi(testnet, address) {
-    const apiUrl = testnet ? ethRopstenApiUrl : ethApiUrl;
+    const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;
     const pathParams = [];
     const params = {
         module: 'contract',
@@ -47,7 +52,7 @@ async function getAbi(testnet, address) {
 async function getITxInfo(options) {
     let itxs = [];
     const offset = 200;
-    const apiUrl = options.ropsten ? ethRopstenApiUrl : ethApiUrl;
+    const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;
     const pathParams = [];
     let params = {
         module: 'account',
@@ -78,7 +83,7 @@ async function getITxInfo(options) {
 async function getTxInfo(options) {
     let txs = [];
     const offset = 200;
-    const apiUrl = options.ropsten ? ethRopstenApiUrl : ethApiUrl;
+    const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;
     const pathParams = [];
     let params = {
         module: 'account',
@@ -107,7 +112,7 @@ async function getTxInfo(options) {
 }
 
 async function validateContractAddress(options) {
-    const apiUrl = options.ropsten ? ethRopstenApiUrl : ethApiUrl;
+    const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;
     const pathParams = [];
     const params = {
         module: 'proxy',

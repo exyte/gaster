@@ -10,13 +10,13 @@ const parseArgumentsIntoOptions = (rawArgs) => {
             '--startblock': Number,
             '--endblock': Number,
             '--path': String,
-            '--ropsten': Boolean,
+            '--net': String,
             '--trace' : Boolean,
             '-a': '--address',
             '-s': '--startblock',
             '-e': '--endblock',
             '-p': '--path',
-            '-r': '--ropsten',
+            '-n': '--net',
         },
         {
             argv: rawArgs.slice()
@@ -29,7 +29,7 @@ const parseArgumentsIntoOptions = (rawArgs) => {
         startblock: args['--startblock'] || false,
         endblock: args['--endblock'] || false,
         path: args['--path'] || false,
-        ropsten: args['--ropsten'] || false,
+        net: args['--net'] || 'mainnet',
         trace: args['--trace'] || false,
     }
 };

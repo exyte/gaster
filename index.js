@@ -4,7 +4,6 @@ const { getGasStats } = require('./src/main.js');
     const options = {
         address: '0x5931382a5A15D7A6c2aFD6A331eAae9751Faf1Cf',
         abi: './abi.json',
-        trace: true,
     };
     const result = await getGasStats(options);
 })();

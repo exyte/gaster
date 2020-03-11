@@ -2,8 +2,6 @@ const InputDataDecoder = require('ethereum-input-data-decoder');
 const fs = require('fs');
 const isValid = require('is-valid-path');
 const { parseAsync } = require('json2csv');
-const Listr = require('listr');
-const { Observable} = require('rxjs');
 const {
     HttpRequestMethod,
     apiHttpRequest
@@ -32,18 +30,14 @@ const logger = createLogger({
 
 
 const getGasStats = async (options) => {
-    this.txs = [];
-    this.itxs = [];
-    this.addresses = new Set();
-    this.abis = new Map();
-    this.features = [];
+    let txs = [];
+    let itxs = [];
+    let abis = new Map();
 
     if (!options.address) {
         console.error('Smart contract address is not specified!');
         return;
     }
-
-    this.addresses.add(options.address);
 
     const validationResult = await validateContractAddress(options);
 
@@ -52,50 +46,13 @@ const getGasStats = async (options) => {
         return;
     }
 
-    const tasks = new Listr([
-        {
-            title: 'Fetching transactions',
-            task: async () => {
-                return getTxInfo.call(this, options);
-            }
-        },
-        {
-            title: 'Fetching internal transactions',
-            task: async () => {
-                return getITxInfo.call(this, options);
-            }
-        },
-        {
-            title: 'Merging transactions info',
-            task: async () => {
-                return mergeTxInfo.call(this);
-            }
-        },
-        {
-            title: 'Getting abis',
-            task: async () => {
-                return getAbis.call(this, options);
-            }
-        },
-        {
-            title: 'Preparing data',
-            task: async () => {
-                return prepareTxsData.call(this, options);
-            }
-        },
-        {
-            title: 'Persisting data',
-            task: async () => {
-                return persistTxsData.call(this, options);
-            }
-        }
-    ]);
-
-    tasks.run().then(async () => {
-        process.exit(0);
-    }).catch(() => {
-        process.exit(1)
-    });
+    txs = await getTxInfo(options);
+    itxs = await getITxInfo(options);
+    txs = mergeTxInfo(txs, itxs);
+    const addresses = new Set([options.address, ...getAdresses(txs)]);
+    abis = await getAbis(options, addresses);
+    txs = await prepareTxsData(options, txs, abis);
+    await persistTxsData(options, txs);
 };
 
 const validateContractAddress = async (options) => {
@@ -133,193 +90,189 @@ const validateContractAddress = async (options) => {
 };
 
 const getTxInfo = async (options) => {
+    let txs = [];
     const offset = 200;
-    return new Observable( async (observer) => {
-        const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
-        const pathParams = [];
-        let params = {
-            module: 'account',
-            action: 'txlist',
-            address: options.address,
-            startblock: options.startblock,
-            endblock: options.endblock,
-            sort: 'asc',
-            page: 1,
-            offset
-        };
-        const method = HttpRequestMethod.GET;
+    const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
+    const pathParams = [];
+    let params = {
+        module: 'account',
+        action: 'txlist',
+        address: options.address,
+        startblock: options.startblock,
+        endblock: options.endblock,
+        sort: 'asc',
+        page: 1,
+        offset
+    };
+    const method = HttpRequestMethod.GET;
 
-        let next = false;
+    let next = false;
 
-        do {
-            const response = await apiHttpRequest({
-                apiUrl,
-                pathParams,
-                params,
-                method
-            });
+    do {
+        const response = await apiHttpRequest({
+            apiUrl,
+            pathParams,
+            params,
+            method
+        });
 
-            next = response.result.length === offset;
+        next = response.result.length === offset;
 
-            this.txs = this.txs.concat(response.result);
-            observer.next(this.txs.length);
-            ++params.page;
+        txs = txs.concat(response.result);
+        ++params.page;
 
-        } while (next);
+    } while (next);
 
-        this.txs = this.txs.filter((tx) => tx.isError === '0' && undefined !== tx.to && tx.to.toLowerCase() === options.address.toLowerCase());
-
-        observer.complete();
-    });
+    return txs.filter((tx) => tx.isError === '0' && undefined !== tx.to && tx.to.toLowerCase() === options.address.toLowerCase());
 };
 
 const getITxInfo = async (options) => {
+    let itxs = [];
     const offset = 200;
-    return new Observable( async (observer) => {
-        const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
-        const pathParams = [];
-        let params = {
-            module: 'account',
-            action: 'txlistinternal',
-            address: options.address,
-            startblock: options.startblock,
-            endblock: options.endblock,
-            sort: 'asc',
-            page: 1,
-            offset
-        };
-        const method = HttpRequestMethod.GET;
+    const apiUrl = options.ropsten ? ethRopstenApiUrl: ethApiUrl;
+    const pathParams = [];
+    let params = {
+        module: 'account',
+        action: 'txlistinternal',
+        address: options.address,
+        startblock: options.startblock,
+        endblock: options.endblock,
+        sort: 'asc',
+        page: 1,
+        offset
+    };
+    const method = HttpRequestMethod.GET;
 
-        let next = false;
+    let next = false;
 
-        do {
-            const response = await apiHttpRequest({
-                apiUrl,
-                pathParams,
-                params,
-                method
-            });
+    do {
+        const response = await apiHttpRequest({
+            apiUrl,
+            pathParams,
+            params,
+            method
+        });
 
-            next = response.result.length === offset;
+        next = response.result.length === offset;
 
-            this.itxs = this.itxs.concat(response.result);
-            observer.next(this.itxs.length);
-            ++params.page;
+        itxs = itxs.concat(response.result);
+        ++params.page;
 
-        } while (next);
+    } while (next);
 
-        this.itxs = this.itxs.filter((tx) => tx.isError === '0' && tx.type === 'delegatecall');
-
-        observer.complete();
-    });
+    return itxs.filter((tx) => tx.isError === '0' && tx.type === 'delegatecall');
 };
 
-const mergeTxInfo = () => {
-    this.itxs.forEach((itx) => {
-        const tx = this.txs.find(tx => tx.hash === itx.hash);
+const mergeTxInfo = (txs, itxs) => {
+    let mergedTxs = [...txs];
+    itxs.forEach((itx) => {
+        const tx = mergedTxs.find(tx => tx.hash === itx.hash);
         if (undefined !== tx) {
             tx.contractAddress = itx.to;
         }
     });
 
-    this.txs.forEach((tx) => {
+    mergedTxs.forEach((tx) => {
         if(!tx.contractAddress) {
             tx.contractAddress = tx.to;
         }
     });
 
-    this.txs.forEach((tx) => {
-        if (!this.addresses.has(tx.contractAddress.toLowerCase())) {
-            this.addresses.add(tx.contractAddress.toLowerCase());
-        }
-    });
+    return mergedTxs;
 };
 
-const getAbis = async (options) => {
-    return new Observable( async (observer) => {
-        if (options.abi) {
-            observer.next('Parsing input parameters');
+const getAdresses = (txs) => {
+    let addresses = new Set();
+    txs.forEach((tx) => {
+        if (!addresses.has(tx.contractAddress.toLowerCase())) {
+            addresses.add(tx.contractAddress.toLowerCase());
+        }
+    });
 
-            if(isValid(options.abi)) {
-                try {
-                    options.abi = fs.readFileSync(options.abi);
-                } catch (err) {
-                    logger.error(`Error occurred on reading abi file: ${err}`);
-                    options.abi = '[]';
-                }
+    return addresses;
+}
+
+const getAbis = async (options, addresses) => {
+    let resultAbis = new Map();
+    if (options.abi) {
+
+        if(isValid(options.abi)) {
+            try {
+                options.abi = fs.readFileSync(options.abi);
+            } catch (err) {
+                logger.error(`Error occurred on reading abi file: ${err}`);
+                options.abi = '[]';
             }
+        }
 
-            const abis = JSON.parse(options.abi);
-            if (abis.length === 1 && !abis[0].address) {
+        const abis = JSON.parse(options.abi);
+        if (abis.length === 1 && !abis[0].address) {
+            const decoder = (() => {
+                try {
+                    return new InputDataDecoder(abis);
+                } catch(err) {
+                    logger.error(new Error(`Error occurred on creating txs' input data decoder for address ${options.address}: ${err}`));
+                    return undefined;
+                }
+            })();
+            resultAbis.set(options.address.toLowerCase(), {
+                abi: abis,
+                decoder
+            });
+        } else {
+            abis.forEach(item => {
                 const decoder = (() => {
                     try {
-                        return new InputDataDecoder(abis);
+                        return new InputDataDecoder(item.abi);
                     } catch(err) {
-                        logger.error(new Error(`Error occurred on creating txs' input data decoder for address ${options.address}: ${err}`));
+                        logger.error(new Error(`Error occurred on creating txs' input data decoder for address ${item.address}: ${err}`));
                         return undefined;
                     }
                 })();
-                this.abis.set(options.address.toLowerCase(), {
-                    abi: abis,
+                resultAbis.set(item.address.toLowerCase(), {
+                    abi: item.abi,
                     decoder
                 });
-            } else {
-                abis.forEach(item => {
-                    const decoder = (() => {
-                        try {
-                            return new InputDataDecoder(item.abi);
-                        } catch(err) {
-                            logger.error(new Error(`Error occurred on creating txs' input data decoder for address ${item.address}: ${err}`));
-                            return undefined;
-                        }
-                    })();
-                    this.abis.set(item.address.toLowerCase(), {
-                        abi: item.abi,
-                        decoder
-                    });
-                })
-            }
+            })
         }
+    }
 
-        let promises = [];
+    let promises = [];
 
-        this.addresses.forEach(async (address) => {
-            if (this.abis.has(address.toLowerCase())) {
-                return;
-            }
-            observer.next(`Getting abi for ${address}`);
-
-            promises.push(new Promise((resolve, reject) => getAbi(address, options.ropsten)
-                .then(async (result) => {
-                    if (result.err) {
-                        result.abi = '[]';
-                        logger.error(new Error(`Error occurred on getting contract ${address} abi: ${result.err}`));
+    addresses.forEach(async (address) => {
+        if (resultAbis.has(address.toLowerCase())) {
+            return;
+        }
+       
+        promises.push(new Promise((resolve, reject) => getAbi(address, options.ropsten)
+            .then(async (result) => {
+                if (result.err) {
+                    result.abi = '[]';
+                    logger.error(new Error(`Error occurred on getting contract ${address} abi: ${result.err}`));
+                }
+                const abi = JSON.parse(result.abi);
+                const decoder = (() => {
+                    try {
+                        return new InputDataDecoder(abi);
+                    } catch(err) {
+                        logger.error(new Error(`Error occurred on creating txs' input data decoder for address ${address}: ${err}`));
+                        return undefined;
                     }
-                    const abi = JSON.parse(result.abi);
-                    const decoder = (() => {
-                        try {
-                            return new InputDataDecoder(abi);
-                        } catch(err) {
-                            logger.error(new Error(`Error occurred on creating txs' input data decoder for address ${address}: ${err}`));
-                            return undefined;
-                        }
-                    })();
-                    this.abis.set(address, {
-                        abi,
-                        decoder
-                    });
-                    resolve();
-                })
-                .catch(err => {
-                    logger.error(new Error(`Error occurred on getting contract ${address} abi: ${err}`));
-                })));
-        });
-
-        await Promise.all(promises)
-            .then(() => {
-                observer.complete();
-            });
+                })();
+                resultAbis.set(address, {
+                    abi,
+                    decoder
+                });
+                resolve();
+            })
+            .catch(err => {
+                logger.error(new Error(`Error occurred on getting contract ${address} abi: ${err}`));
+            })));
     });
+
+    await Promise.all(promises);
+
+    return resultAbis;
 };
 
 const getAbi = async (address, testnet) => {
@@ -358,12 +311,17 @@ const getAbi = async (address, testnet) => {
     return result;
 };
 
-const prepareTxsData = async function (options) {
-    this.txs.forEach((tx) => {
-        const item = this.abis.get(tx.contractAddress.toLowerCase());
+const prepareTxsData = async function (options, txs, abis) {
+    let preparedTxs = [...txs];
+    let features = [];
+    preparedTxs.forEach((tx) => {
+        const item = abis.get(tx.contractAddress.toLowerCase());
         if (item && item.decoder) {
             tx.input = item.decoder.decodeData(tx.input);
-            addFeatures(tx, tx.input);
+            tx['properties'] = tx.input.names.reduce(function(properties, name, index){
+                properties[`arg_${name}`] = tx.input.inputs[index];
+                return properties;
+            }, {});
             tx.inputs = tx.input.inputs;
             tx.method = tx.input.method;
             tx.types = tx.input.types;
@@ -371,9 +329,8 @@ const prepareTxsData = async function (options) {
         }
     });
     if (options.trace) {
-        // get organizations' creation dates
-        this.features.addUnique('arg__organization_timeStamp');
-        const distinctOrganizations = [...new Set(this.txs.map(tx => `0x${tx['arg__organization'].toLowerCase()}`))];
+        features.addUnique('arg__organization_timeStamp');
+        const distinctOrganizations = [...new Set(preparedTxs.map(tx => `0x${tx['arg__organization'].toLowerCase()}`))];
         const organizationsCreationDates = await distinctOrganizations.reduce(async (pendingResult, organizationAddress) => {
             const previousResult = await pendingResult;
             const creationDate = await getContractCreationDate(organizationAddress, options);
@@ -383,16 +340,19 @@ const prepareTxsData = async function (options) {
             };
             return result
         }, {});
-        this.txs.forEach(tx => tx['arg__organization_timeStamp'] = Number(organizationsCreationDates[`0x${tx['arg__organization'].toLowerCase()}`]))
+        preparedTxs.forEach(tx => tx['arg__organization_timeStamp'] = Number(organizationsCreationDates[`0x${tx['arg__organization'].toLowerCase()}`]))
     }
+
+    return preparedTxs;
 };
 
-const addFeatures = (data, input) => {
+const getFeatures = (data, input) => {
+    let features = [];
     const re = /(\w+)(\[])/;
     input.types.forEach((type, index) => {
         let typeParts = type.split(re);
 
-        this.features.addUnique(`arg_${input.names[index]}`);
+        features.addUnique(`arg_${input.names[index]}`);
         data[`arg_${input.names[index]}`] = input.inputs[index];
 
         //fixme
@@ -401,21 +361,21 @@ const addFeatures = (data, input) => {
         });
 
         if (typeParts.length > 1 && typeParts[1] === '[]') {
-            this.features.addUnique(`arg_${input.names[index]}_length`);
+            features.addUnique(`arg_${input.names[index]}_length`);
             data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
             if (typeParts[0].match('int') !== null) {
-                this.features.addUnique(`arg_${input.names[index]}_min`);
+                features.addUnique(`arg_${input.names[index]}_min`);
                 data[`arg_${input.names[index]}_min`] = Math.min(...input.inputs[index]);
-                this.features.addUnique(`arg_${data.names[index]}_max`);
+                features.addUnique(`arg_${data.names[index]}_max`);
                 data[`arg_${input.names[index]}_max`] = Math.max(...input.inputs[index]);
             }
             if (typeParts[0].match('string') !== null || typeParts[0].match('byte') !== null || typeParts[0].match('hex') !== null) {
                 const strLenArr = input.inputs[index].map((str) => {
                     return str.length;
                 });
-                this.features.addUnique(`arg_${input.names[index]}_minLength`);
+                features.addUnique(`arg_${input.names[index]}_minLength`);
                 data[`arg_${input.names[index]}_minLength`] = Math.min(...strLenArr);
-                this.features.addUnique(`arg_${input.names[index]}_maxLength`);
+                features.addUnique(`arg_${input.names[index]}_maxLength`);
                 data[`arg_${input.names[index]}_maxLength`] = Math.max(...strLenArr);
 
                 let numArray = input.inputs[index].map((str) => {
@@ -427,9 +387,9 @@ const addFeatures = (data, input) => {
                 });
 
                 if (numArray.length) {
-                    this.features.addUnique(`arg_${input.names[index]}_min`);
+                    features.addUnique(`arg_${input.names[index]}_min`);
                     data[`arg_${input.names[index]}_min`] = Math.min(...numArray);
-                    this.features.addUnique(`arg_${input.names[index]}_max`);
+                    features.addUnique(`arg_${input.names[index]}_max`);
                     data[`arg_${input.names[index]}_max`] = Math.max(...numArray);
                 }
             }
@@ -437,108 +397,101 @@ const addFeatures = (data, input) => {
         }
 
         if (typeParts[0].match('byte') !== null) {
-            this.features.addUnique(`arg_${input.names[index]}_length`);
+            features.addUnique(`arg_${input.names[index]}_length`);
             data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
         }
 
         if (typeParts[0].match('string') !== null) {
-            this.features.addUnique(`arg_${input.names[index]}_length`);
+            features.addUnique(`arg_${input.names[index]}_length`);
             data[`arg_${input.names[index]}_length`] = input.inputs[index].length;
 
             if(input.inputs[index] && !isNaN(input.inputs[index])) {
-                this.features.addUnique(`arg_${input.names[index]}_num`);
+                features.addUnique(`arg_${input.names[index]}_num`);
                 data[`arg_${input.names[index]}_num`] = input.inputs[index];
             }
         }
     })
+
+    return features;
 };
 
-const persistTxsData = async function (options) {
-    return new Observable( async (observer) => {
-        if (!this.txs.length) {
-            observer.error(new Error(`There is no transactions to process`));
-        }
+const persistTxsData = async function (options, txs, features) {
+    if (!txs.length) {
+        throw new Error(`There is no transactions to process`);
+    }
+    
+    const fields = [
+        {
+            label: 'address',
+            value: 'to',
+            default: 'NULL'
+        },
+        {
+            label: 'blockNumber',
+            value: (row, field) => Number(row[field.label]),
+            default: 'NULL'
+        },
+        {
+            label: 'gasUsed',
+            value: (row, field) => Number(row[field.label]),
+            default: 'NULL'
+        },
+        {
+            label: 'gasPrice',
+            value: (row, field) => Number(row[field.label]),
+            default: 'NULL'
+        },
+        {
+            label: 'gas',
+            value: (row, field) => Number(row[field.label]),
+            default: 'NULL'
+        },
+        'from',
+        'input',
+        'method',
+        'types',
+        'inputs',
+        'names',
+        'hash',
+        {
+            label: 'timeStamp',
+            value: (row, field) => Number(row[field.label]),
+            default: 'NULL'
+        },
+        'properties'
+    ];
+    const opts = { fields };
+    let promises = [];
 
-        observer.next('Starting to persist transactions\' data');
+    try {
+        const chunk = 1000;
+        const quantity = Math.ceil(txs.length / chunk);
+        for (let i = 0; i < quantity; ++i) {
+            const ttxs = txs.slice(i * chunk, (i + 1) * chunk);
 
-        const fields = [
-            {
-                label: 'address',
-                value: 'to',
-                default: 'NULL'
-            },
-            {
-                label: 'blockNumber',
-                value: (row, field) => Number(row[field.label]),
-                default: 'NULL'
-            },
-            {
-                label: 'gasUsed',
-                value: (row, field) => Number(row[field.label]),
-                default: 'NULL'
-            },
-            {
-                label: 'gasPrice',
-                value: (row, field) => Number(row[field.label]),
-                default: 'NULL'
-            },
-            {
-                label: 'gas',
-                value: (row, field) => Number(row[field.label]),
-                default: 'NULL'
-            },
-            'from',
-            'input',
-            'method',
-            'types',
-            'inputs',
-            'names',
-            'hash',
-            {
-                label: 'timeStamp',
-                value: (row, field) => Number(row[field.label]),
-                default: 'NULL'
-            },
-            ...this.features
-        ];
-        const opts = { fields };
-        let promises = [];
+            const fname = `${options.address}_${i}.csv`;
+            const fpath = `${options.path ? options.path : process.cwd()}/${fname}`;
 
-        try {
-            const chunk = 1000;
-            const quantity = Math.ceil(this.txs.length / chunk);
-            for (let i = 0; i < quantity; ++i) {
-                const ttxs = this.txs.slice(i * chunk, (i + 1) * chunk);
+            promises.push(new Promise((resolve, reject) => parseAsync(ttxs, opts)
+                .then(async (csv) => {
+                    let writeStream = fs.createWriteStream(fpath);
+                    writeStream.write(csv, 'utf-8');
 
-                const fname = `${options.address}_${i}.csv`;
-                const fpath = `${options.path ? options.path : process.cwd()}/${fname}`;
+                    writeStream.on('finish', () => {
+                        resolve();
+                    });
 
-                promises.push(new Promise((resolve, reject) => parseAsync(ttxs, opts)
-                    .then(async (csv) => {
-                        let writeStream = fs.createWriteStream(fpath);
-                        writeStream.write(csv, 'utf-8');
-
-                        writeStream.on('finish', () => {
-                            observer.next(`${fname}: done!`);
-                            resolve();
-                        });
-
-                        writeStream.end();
-                    })
-                    .catch(err => {
-                        reject(`An error occurred on txs data processing to csv: ${err}; file: ${fpath}`);
-                    })));
-
-                Promise.all(promises).then(() => {
-                    observer.complete();
-                }).catch((err) => {
-                    observer.error(new Error(`An error occurred on txs' data processing to csv: ${err}`));
+                    writeStream.end();
                 })
-            }
-        } catch (err) {
-            observer.error(new Error(`An error occurred on data persisting: ${err}`));
+                .catch(err => {
+                    reject(`An error occurred on txs data processing to csv: ${err}; file: ${fpath}`);
+                })));
+
+            await Promise.all(promises);
         }
-    });
+    } catch (err) {
+        throw new Error(`An error occurred on data persisting: ${err}`);
+    }
 };
 
 const getContractCreationDate = async function (address, options) {

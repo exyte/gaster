@@ -202,6 +202,7 @@ const prepareTxsData = async function (options, txs, abis) {
                 properties[`arg_${name}`] = tx.input.inputs[index];
                 return properties;
             }, {});
+            tx['features'] = getFeatures(tx, tx.input);
             tx.inputs = tx.input.inputs;
             tx.method = tx.input.method;
             tx.types = tx.input.types;
@@ -273,7 +274,11 @@ const persistTxsData = async function (options, txs, features) {
             value: (row, field) => Number(row[field.label]),
             default: 'NULL'
         },
-        'properties'
+        'properties',
+        ...new Set(txs.reduce((arr, tx) => {
+            arr.push(...tx.features);
+            return arr;
+        },[]))
     ];
     const opts = { fields };
     let promises = [];

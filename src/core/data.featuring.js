@@ -1,4 +1,3 @@
-
 function getFeatures(input, data) {
     let features = [];
     const re = /(\w+)(\[])/;

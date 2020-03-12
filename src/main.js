@@ -10,10 +10,6 @@ const {
 } = require('./core/common')
 
 const getGasStats = async (options) => {
-    let txs = [];
-    let itxs = [];
-    let abis = new Map();
-
     if (!options.address) {
         console.error('Smart contract address is not specified!');
         return;
@@ -26,21 +22,13 @@ const getGasStats = async (options) => {
         return;
     }
 
-    txs = await getTxInfo(options);
-    itxs = await getITxInfo(options);
-    txs = mergeTxInfo(txs, itxs);
-    const addresses = new Set([options.address, ...getAdresses(txs)]);
-    abis = await getAbis(options, addresses);
-    txs = await prepareTxsData(options, txs, abis);
-    await persistTxsData(options, txs);
+    const txs = await getTxInfo(options);
+    const itxs = await getITxInfo(options);
+    const mergedTxs = mergeTxInfo(txs, itxs);
+    const addresses = new Set([options.address, ...getAdresses(mergedTxs)]);
+    const abis = await getAbis(options, addresses);
+    const preparedTxs = await prepareTxsData(options, mergedTxs, abis);
+    await persistTxsData(options, preparedTxs);
 };
-
-if (typeof(Array.prototype.addUnique) !== 'function') {
-    Array.prototype.addUnique = function(el) {
-        if (!this.includes(el)) {
-            this.push(el);
-        }
-    };
-}
 
 module.exports = { getGasStats, validateContractAddress };

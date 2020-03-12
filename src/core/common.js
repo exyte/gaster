@@ -210,7 +210,7 @@ const prepareTxsData = async function (options, txs, abis) {
         }
     });
     if (options.trace) {
-        features.addUnique('arg__organization_timeStamp');
+        features.push('arg__organization_timeStamp');
         const distinctOrganizations = [...new Set(preparedTxs.map(tx => `0x${tx['arg__organization'].toLowerCase()}`))];
         const organizationsCreationDates = await distinctOrganizations.reduce(async (pendingResult, organizationAddress) => {
             const previousResult = await pendingResult;

@@ -1,15 +1,13 @@
-const {
-    HttpRequestMethod,
-    apiHttpRequest
-} = require('../utils');
+const { HttpRequestMethod } = require('./enums');
+const { apiHttpRequest } = require('../utils');
 
 const apiUrls = {
     mainnet: 'https://api.etherscan.io/api',
     ropsten: 'https://api-ropsten.etherscan.io/api',
     kovan: 'https://api-kovan.etherscan.io/api',
     rinkeby: 'https://api-rinkeby.etherscan.io/api',
-    goerly: 'https://api-goerli.etherscan.io/api'
-  }
+    goerli: 'https://api-goerli.etherscan.io/api'
+}
 
 async function getContractCreationDate(options, address) {
     const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;

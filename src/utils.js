@@ -1,9 +1,5 @@
 const fetch = require('node-fetch');
-
-const HttpRequestMethod = {
-    GET: 'GET',
-    POST: 'POST'
-};
+const { HttpRequestMethod } = require('./core/enums');
 
 const apikey = 'NGU6TY7RCXUTNM6SJA27721VV4V71TE4WW';
 
@@ -71,6 +67,5 @@ const buildUrl = (url, params) => {
 };
 
 module.exports = {
-    apiHttpRequest,
-    HttpRequestMethod
+    apiHttpRequest
 };

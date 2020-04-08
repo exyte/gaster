@@ -1,6 +1,5 @@
 const InputDataDecoder = require('ethereum-input-data-decoder');
 const fs = require('fs');
-const isValid = require('is-valid-path');
 const { parseAsync } = require('json2csv');
 const { createLogger, format, transports } = require('winston');
 const etherscan = require('./etherscan.api');
@@ -16,20 +15,20 @@ const logger = createLogger({
         format.splat(),
         format.json()
     ),
-    defaultMeta: { service: 'ethgasstats' },
+    defaultMeta: { service: 'gaster' },
     transports: [
-        new transports.File({ filename: 'ethgasstats-error.log', level: 'error' }),
-        new transports.File({ filename: 'ethgasstats-combined.log' })
+        new transports.File({ filename: 'gaster-error.log', level: 'error' }),
+        new transports.File({ filename: 'gaster-combined.log' })
     ]
 });
 
-const validateContractAddress = async (options) => {
+const validateContractAddress = async (address, options) => {
     let result = {
         validated: true,
         err: ''
     };
 
-    const response = await etherscan.validateContractAddress(options);
+    const response = await etherscan.validateContractAddress(address, options);
 
     if (response.error) {
         result.err = 'Address specified is invalid';
@@ -44,30 +43,29 @@ const validateContractAddress = async (options) => {
     return result;
 };
 
-const getTxInfo = async (options) => {
-    let txs = await etherscan.getTxInfo(options);
-
-    return txs.filter((tx) => tx.isError === '0' && undefined !== tx.to && tx.to.toLowerCase() === options.address.toLowerCase());
-};
-
-const getITxInfo = async (options) => {
-    let itxs = await etherscan.getITxInfo(options);
-
-    return itxs.filter((tx) => tx.isError === '0' && tx.type === 'delegatecall');
+const getTxInfo = async (address, options) => {
+    const txs = await etherscan.getTxInfo(address, options);
+    const itxs = await etherscan.getTxInfo(address, options, true);
+    const mergedTxs = mergeTxInfo(txs, itxs);
+    return mergedTxs.filter((tx) => tx.isError === '0');
 };
 
 const mergeTxInfo = (txs, itxs) => {
-    let mergedTxs = [...txs];
-    itxs.forEach((itx) => {
-        const tx = mergedTxs.find(tx => tx.hash === itx.hash);
-        if (undefined !== tx) {
-            tx.contractAddress = itx.to;
+    const itxsIndex = itxs.reduce((agg, itx) => {
+        const { from, to, contractAddress, hash, type, input, timeStamp } = itx;
+        if(!agg[`${hash}`]) {
+            agg[`${hash}`] = []
         }
-    });
+        agg[`${hash}`].push({ from, to, contractAddress, type, input, timeStamp });
+        return agg;
+    }, {});
 
-    mergedTxs.forEach((tx) => {
-        if(!tx.contractAddress) {
-            tx.contractAddress = tx.to;
+    const mergedTxs = txs.map((tx) => {
+        const itxs = itxsIndex[tx.hash];
+        return {
+            ...tx,
+            to: itxs && itxs.length === 1 && itxs[0].type === 'delegatecall' ? itxs[0].to : tx.to,
+            itxs,
         }
     });
 
@@ -75,106 +73,73 @@ const mergeTxInfo = (txs, itxs) => {
 };
 
 const getAdresses = (txs) => {
-    let addresses = new Set();
-    txs.forEach((tx) => {
-        if (!addresses.has(tx.contractAddress.toLowerCase())) {
-            addresses.add(tx.contractAddress.toLowerCase());
-        }
-    });
-
-    return addresses;
-}
-
-const getAbis = async (options, addresses) => {
-    let resultAbis = new Map();
-    if (options.abi) {
-
-        if(isValid(options.abi)) {
-            try {
-                options.abi = fs.readFileSync(options.abi);
-            } catch (err) {
-                logger.error(`Error occurred on reading abi file: ${err}`);
-                options.abi = '[]';
-            }
-        }
-
-        const abis = JSON.parse(options.abi);
-        if (abis.length === 1 && !abis[0].address) {
-            const decoder = (() => {
-                try {
-                    return new InputDataDecoder(abis);
-                } catch(err) {
-                    logger.error(new Error(`Error occurred on creating txs' input data decoder for address ${options.address}: ${err}`));
-                    return undefined;
-                }
-            })();
-            resultAbis.set(options.address.toLowerCase(), {
-                abi: abis,
-                decoder
-            });
-        } else {
-            abis.forEach(item => {
-                const decoder = (() => {
-                    try {
-                        return new InputDataDecoder(item.abi);
-                    } catch(err) {
-                        logger.error(new Error(`Error occurred on creating txs' input data decoder for address ${item.address}: ${err}`));
-                        return undefined;
-                    }
-                })();
-                resultAbis.set(item.address.toLowerCase(), {
-                    abi: item.abi,
-                    decoder
-                });
-            })
-        }
-    }
-
-    let promises = [];
-
-    addresses.forEach(async (address) => {
-        if (resultAbis.has(address.toLowerCase())) {
-            return;
-        }
-       
-        promises.push(new Promise((resolve, reject) => getAbi(address, options.ropsten)
-            .then(async (result) => {
-                if (result.err) {
-                    result.abi = '[]';
-                    logger.error(new Error(`Error occurred on getting contract ${address} abi: ${result.err}`));
-                }
-                const abi = JSON.parse(result.abi);
-                const decoder = (() => {
-                    try {
-                        return new InputDataDecoder(abi);
-                    } catch(err) {
-                        logger.error(new Error(`Error occurred on creating txs' input data decoder for address ${address}: ${err}`));
-                        return undefined;
-                    }
-                })();
-                resultAbis.set(address, {
-                    abi,
-                    decoder
-                });
-                resolve();
-            })
-            .catch(err => {
-                logger.error(new Error(`Error occurred on getting contract ${address} abi: ${err}`));
-            })));
-    });
-
-    await Promise.all(promises);
-
-    return resultAbis;
+    const addresses = txs.map(tx => tx.to);
+    return addresses.filter(address => address.length);
 };
 
-const getAbi = async (address, testnet) => {
+const getAbisAndDecoders = async (address, txs, options) => {
+    const getDecoder = (abi) => {
+        try {
+            return new InputDataDecoder(abi);
+        } catch(err) {
+            logger.error(`Error occurred on creating txs' input data decoder: ${err}`);
+            return undefined;
+        }
+    };
+
+    const optionsAbi = options.abi ? options.abi : [];
+    const abisIndexedByAddress = optionsAbi.reduce((agg, obj) => {
+        const { address, alias, abi } = obj;
+        const decoder = getDecoder(abi);
+        if(address) {
+            return {
+                ...agg,
+                [obj.address.toLowerCase()]: {
+                    alias,
+                    abi,
+                    decoder,
+                },
+            }
+        } else {
+            if(!agg['unattached']) {
+                agg['unattached'] = []
+            }
+            agg['unattached'].push({
+                alias,
+                abi,
+                decoder,
+            });
+            return agg
+        }
+    }, {});
+
+    const addresses = new Set([address, ...getAdresses(txs)]);
+    addresses.forEach(async (address) => {
+        if (!abisIndexedByAddress[address]) {
+            const { abi, err } = await getAbi(address, options);
+            if (err) {
+                logger.error(`Error occurred on getting contract ${address} abi: ${err}`);
+            } else {
+                const decoder = getDecoder();
+                abisIndexedByAddress[address] = {
+                    abi: JSON.parse(abi),
+                    alias: '',
+                    decoder,
+                };
+            }
+        }
+    });
+
+    return abisIndexedByAddress;
+};
+
+const getAbi = async (address, options) => {
     let result = {
         abi: '[]',
         err: ''
     };
 
-    const response = await etherscan.getAbi(testnet, address);
+    const response = await etherscan.getAbi(address, options);
 
     result.abi = response.result;
 
@@ -191,55 +156,100 @@ const getAbi = async (address, testnet) => {
     return result;
 };
 
-const prepareTxsData = async function (options, txs, abis) {
-    let preparedTxs = [...txs];
-    let features = [];
-    preparedTxs.forEach((tx) => {
-        const item = abis.get(tx.contractAddress.toLowerCase());
-        if (item && item.decoder) {
-            tx.input = item.decoder.decodeData(tx.input);
-            tx['properties'] = tx.input.names.reduce(function(properties, name, index){
-                properties[`arg_${name}`] = tx.input.inputs[index];
-                return properties;
-            }, {});
-            tx['features'] = getFeatures(tx, tx.input);
-            tx.inputs = tx.input.inputs;
-            tx.method = tx.input.method;
-            tx.types = tx.input.types;
-            tx.names = tx.input.names;
+const revealTxsData = async function (txs, abis) {
+    const decodeTxData = (tx) => {
+        const abi = abis[tx.to.toLowerCase()];
+        if (abi) {
+            return {
+                decodedData: abi.decoder.decodeData(tx.input),
+                alias: abi.alias,
+                err: false,
+            }
         }
+
+        const { unattached } = abis;
+        if (!unattached || !unattached.length) {
+            return {
+                decodedData: {},
+                alias: '',
+                err: true,
+            }
+        }
+
+        for (let i = 0; i < unattached.length; ++i) {
+            const decodedData = unattached[i].decoder.decodeData(tx.input);
+            if (decodedData.method !== null) {
+                return {
+                    decodedData,
+                    alias: unattached[i].alias,
+                    err: false,
+                }
+            }
+        }
+
+        return {
+            decodedData: {},
+            alias: '',
+            err: true,
+        }
+    };
+
+    const preparedTxs = txs.map((tx) => {
+        const { decodedData, alias, err } = decodeTxData(tx);
+        if (err) {
+            return tx
+        }
+
+        const { method, inputs, types, names } = decodedData;
+        const properties = getProperties(decodedData);
+        const features = getFeatures(decodedData);
+
+        return {
+            ...tx,
+            alias,
+            method,
+            inputs,
+            types,
+            names,
+            properties,
+            features,
+        };
     });
-    if (options.trace) {
-        features.push('arg__organization_timeStamp');
-        const distinctOrganizations = [...new Set(preparedTxs.map(tx => `0x${tx['arg__organization'].toLowerCase()}`))];
-        const organizationsCreationDates = await distinctOrganizations.reduce(async (pendingResult, organizationAddress) => {
-            const previousResult = await pendingResult;
-            const creationDate = await getContractCreationDate(organizationAddress, options);
-            const result = {
-                [organizationAddress]: creationDate,
-                ...previousResult
-            };
-            return result
-        }, {});
-        preparedTxs.forEach(tx => tx['arg__organization_timeStamp'] = Number(organizationsCreationDates[`0x${tx['arg__organization'].toLowerCase()}`]))
-    }
 
     return preparedTxs;
 };
 
-const getFeatures = (data, input) => {
-    return dataFeaturing.getFeatures(input, data);
+const getProperties = (data) => {
+    return data.names.reduce(function(properties, name, index){
+        properties[`${name}`] = data.inputs[index];
+        return properties;
+    }, {});
 };
 
-const persistTxsData = async function (options, txs, features) {
+const getFeatures = (data) => {
+    return dataFeaturing.getFeatures(data);
+};
+
+const persistTxsData = async function (txs, options) {
     if (!txs.length) {
-        throw new Error(`There is no transactions to process`);
+        logger.error(`There is no transactions to process`);
+        return;
     }
-    
+
     const fields = [
         {
             label: 'address',
             value: 'to',
+            default: 'NULL'
+        },
+        {
+            label: 'user',
+            value: 'from',
+            default: 'NULL'
+        },
+        {
+            label: 'timeStamp',
+            value: (row, field) => Number(row[field.label]),
             default: 'NULL'
         },
         {
@@ -262,76 +272,73 @@ const persistTxsData = async function (options, txs, features) {
             value: (row, field) => Number(row[field.label]),
             default: 'NULL'
         },
-        'from',
+        'alias',
+        'itxs',
         'input',
         'method',
-        'types',
-        'inputs',
-        'names',
-        'hash',
-        {
-            label: 'timeStamp',
-            value: (row, field) => Number(row[field.label]),
-            default: 'NULL'
-        },
         'properties',
-        ...new Set(txs.reduce((arr, tx) => {
-            arr.push(...tx.features);
-            return arr;
-        },[]))
+        'features',
     ];
     const opts = { fields };
-    let promises = [];
+    const promises = [];
 
-    try {
-        const chunk = 1000;
-        const quantity = Math.ceil(txs.length / chunk);
-        for (let i = 0; i < quantity; ++i) {
-            const ttxs = txs.slice(i * chunk, (i + 1) * chunk);
-
-            const fname = `${options.address}_${i}.csv`;
-            const fpath = `${options.path ? options.path : process.cwd()}/${fname}`;
-
-            promises.push(new Promise((resolve, reject) => parseAsync(ttxs, opts)
-                .then(async (csv) => {
-                    let writeStream = fs.createWriteStream(fpath);
-                    writeStream.write(csv, 'utf-8');
-
-                    writeStream.on('finish', () => {
-                        resolve();
-                    });
-
-                    writeStream.end();
-                })
-                .catch(err => {
-                    reject(`An error occurred on txs data processing to csv: ${err}; file: ${fpath}`);
-                })));
-
-            await Promise.all(promises);
+    const txsIndexedByAlias = txs.reduce((agg, tx) => {
+        const alias = tx.alias || 'unidentified';
+        if (!agg[`${alias}`]) {
+            agg[`${alias}`] = []
         }
-    } catch (err) {
-        throw new Error(`An error occurred on data persisting: ${err}`);
+        agg[`${alias}`].push(tx);
+        return agg;
+    }, {});
+    const now = new Date();
+    const date = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }).split('/').join('');
+    const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit'}).split(':').join('');
+
+    const dir =`${options.path ? options.path : process.cwd()}`;
+
+    if (!fs.existsSync(dir)){
+        fs.mkdirSync(dir);
     }
+
+    Object.keys(txsIndexedByAlias).forEach(async (alias) =>{
+        const txsByAlias = txsIndexedByAlias[alias];
+        try {
+            const chunk = 1000;
+            const quantity = Math.ceil(txsByAlias.length / chunk);
+            for (let i = 0; i < quantity; ++i) {
+                const ttxs = txsByAlias.slice(i * chunk, (i + 1) * chunk);
+
+                const fname = `${alias}_${date}_${time}_${i}.csv`;
+                const fpath = `${dir}/${fname}`;
+
+                promises.push(new Promise((resolve, reject) => parseAsync(ttxs, opts)
+                    .then(async (csv) => {
+                        let writeStream = fs.createWriteStream(fpath);
+                        writeStream.write(csv, 'utf-8');
+
+                        writeStream.on('finish', () => {
+                            resolve();
+                        });
+
+                        writeStream.end();
+                    })
+                    .catch(err => {
+                        reject(`An error occurred on txs data processing to csv: ${err}; file: ${fpath}`);
+                    })));
+
+                await Promise.all(promises);
+            }
+        } catch (err) {
+            logger.error(`An error occurred on data persisting for ${alias} contract: ${err}`);
+        }
+    });
 };
 
-const getContractCreationDate = async function (address, options) {
-    const response = await etherscan.getContractCreationDate(options, address);
-
-    if (!response.result.length) {
-        return 0
-    }
-    const result = response.result[0];
-    return result.timeStamp
-};
-
-module.exports = { 
+module.exports = {
     validateContractAddress,
     getTxInfo,
-    getITxInfo,
-    mergeTxInfo,
-    getAdresses,
-    getAbis,
-    prepareTxsData,
+    getAbisAndDecoders,
+    revealTxsData,
     getFeatures,
     persistTxsData
 };

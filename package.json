@@ -1,12 +1,9 @@
 {
-  "name": "ethgasstats",
-  "version": "1.0.0",
-  "description": "A CLI to get transactions of the specified smart contract and get some statistics",
-  "main": "index.js",
-  "bin": {
-    "@koteld/ethgasstats": "bin/ethgasstats",
-    "ethgasstats": "bin/ethgasstats"
-  },
+  "name": "gaster",
+  "version": "0.1.0",
+  "description": "Collection and analysis of transaction data of Ethereum smart contracts",
+  "bin": "./bin/cli.js",
+  "main": "./src/index.js",
   "publishConfig": {
     "access": "public"
   },
@@ -21,17 +18,16 @@
   ],
   "author": "koteld",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exyte/ethgasstats.git"
+  },
   "dependencies": {
-    "arg": "^4.1.1",
-    "esm": "^3.2.25",
+    "commander": "^5.0.0",
     "ethereum-input-data-decoder": "^0.3.0",
-    "execa": "^2.0.3",
-    "inquirer": "^6.5.0",
     "is-valid-path": "^0.1.1",
-    "json2csv": "^4.5.2",
-    "listr": "^0.14.3",
+    "json2csv": "^5.0.0",
     "node-fetch": "^2.6.0",
-    "rxjs": "^6.5.2",
     "winston": "^3.2.1"
   },
   "devDependencies": {

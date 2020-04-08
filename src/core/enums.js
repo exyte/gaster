@@ -9,9 +9,17 @@ const NetworkName = {
     KOVAN: 'kovan',
     RINKEBY: 'rinkeby',
     GOERLI: 'goerli'
-}
+};
 
-module.exports = { 
+const FeatureType = {
+    MIN: 'min',
+    MAX: 'max',
+    NUM: 'num',
+    LENGTH: 'length',
+};
+
+module.exports = {
     HttpRequestMethod,
-    NetworkName 
+    NetworkName,
+    FeatureType,
 };

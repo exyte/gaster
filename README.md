@@ -1,6 +1,6 @@
-# Ethereum GAS stats
+# Gaster - Ethereum GAS stats
 
-A CLI application to get info of transactions for the specified smart contract.
+The utility to get info of transactions for the specified smart contract.
 The output can be used to analyze gas usage.
 Supports smart contracts deployed with Zeppelin OS.
 
@@ -15,18 +15,17 @@ npm install
 ## Using ethgasstats CLI
 ### Command Line
 ```bash
-$ ethgasstats <options>
+$ gaster <address> <options>
 ```
-
+*  `<address>`: *[string]* Smart contract address
 
 ### Options:
 
-*  `-a`, `--address`: *[string]* Smart contract address.
-*  `--abi`: *[string, optional]* ABI JSON in appropriate format or path to *.json file.
 *  `-s`, `--startblock`: *[number, optional]* Start block number. Default: smart contract genesis block.
 *  `-e`, `--endblock`: *[number, optional]* End block number. Default: smart contract last transaction block.
-*  `-p`, `--path`: *[string, optional]* Directory of the resulting csv files. Defaults to cwd.
-*  `-r`, `--ropsten`: *[boolean, optional]* Use Ropsten (testnet). Defaults to false.
+*  `-n`, `--net`: *[boolean, optional]* Network on which specified smart contract is deployed.
+*  `-a`,`--abi`: *[string, optional]* Path to *.json file with Ethereum smart contracts' ABIs in appropriate format.
+*  `-r`,`--recursive`: *[boolean, optional]* Search transactions recursively through the hierarchy of smart contracts.
 
 ### ABI JSON Format:
 
@@ -36,12 +35,13 @@ Acceptable formats:
 ```bash
 [
     {
-        "address": address1, // address of smart contract 1
-        "abi": abi1 // ABI of smart contract 1
+        "address": address1, // address of smart contract
+        "abi": abi1, // ABI of smart contract
+        "alias": alias // Name of smart contract, optional
     },
     {
-        "address": address2, // address of smart contract 2
-        "abi": abi2 // ABI of smart contract 2
+        "address": address2,
+        "abi": abi2
     },
     ...
 ]
@@ -52,19 +52,23 @@ Acceptable formats:
 
 Transaction information is saved in CSV format.
 Columns:
-*  `address` - address of smart contract (receiving party of the transaction)
+*  `address` - address of the smart contract (receiving party of the transaction)
+*  `user` - the sending party of the transaction
+*  `timeStamp` - timestamp when the transaction was mined
 *  `blockNumber` - number of block in which the transaction was recorded
 *  `gasUsed` - the exact units of gas that was used for the transaction
 *  `gasPrice` - cost per unit of gas specified for the transaction
 *  `gas` - maximum amount of gas provided for the transaction
-*  `from` - the sending party of the transaction
-*  `input` - input data of the transaction decoded with ABI of smart contract
-*  `hash` - hash of the transaction
-*  `timeStamp` - timestamp when the transaction was mined
+*  `alias` - alias of the smart contract
+*  `itxs` - internal transactions (traces) related to the transaction
+*  `input` - encoded input data 
+*  `method` - method called in the transaction 
+*  `parameters` - transaction method parameters decoded with ABI of smart contract
+*  `features` - parameters' features
 
 ### Example:
 ```bash
-ethgasstats --address 0x4Ca389fAAd549aDd7124f2B215266cE162D964e7 -endblock 6050576 --ropsten
+gaster 0x4Ca389fAAd549aDd7124f2B215266cE162D964e7 --endblock 6050576 --net ropsten
 ```
 
 ## Contributing

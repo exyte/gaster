@@ -5,17 +5,23 @@ const fs = require('fs');
 const isValid = require('is-valid-path');
 const { getGasStats } = require('../src/index');
 
-const getAbi = (path) => {
-    console.log(path);
-    if (isValid(path)) {
-        try {
-            const abi = fs.readFileSync(path);
-            return JSON.parse(abi)
-        } catch (err) {
-            console.error('\x1b[31m%s\x1b[0m', `${err}`);
-        }
-    } else {
+const emptyABI = [];
+
+const isValidPath = (path) => {
+    if (!isValid(path)) {
         console.error('\x1b[31m%s\x1b[0m', `${path} is not a valid path\n`);
+        return false;
+    }
+    return true;
+};
+
+const getAbi = (path) => {
+    try {
+        const abi = fs.readFileSync(path);
+        return JSON.parse(abi)
+    } catch (err) {
+        console.error('\x1b[31m%s\x1b[0m', `${err}`);
+        return emptyABI
     }
 };
 
@@ -34,6 +40,7 @@ program
     .option('-e, --endblock <endblock>', 'End block number')
     .option('-n, --net <net>', 'Network on which specified smart contract is deployed', 'mainnet')
     .option('-a, --abi <abi>', 'Path to *.json file with Ethereum smart contract ABIs in appropriate format')
+    .option('-p, --path <path>', 'Path to *.csv')
     .option('-r, --recursive', 'Search transactions recursively through the hierarchy of smart contracts', false)
     .action(async (address, cmd) => {
         const {
@@ -41,19 +48,21 @@ program
             endblock,
             net,
             abi,
+            path,
             recursive,
         } = cmd.opts();
+
+
 
         const options = {
             startblock,
             endblock,
             net,
             recursive,
-            ...(abi ? { abi: getAbi(abi) } : {})
+            ...(path && isValidPath(path) ? { path } : {}),
+            ...(abi && isValidPath(abi) ? { abi: getAbi(abi) } : {})
         };
 
-        console.log(address.toLowerCase());
-        console.log(options);
         await getGasStats(address.toLowerCase(), options)
     });
 

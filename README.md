@@ -52,16 +52,18 @@ Acceptable formats:
 
 Transaction information is saved in CSV format.
 Columns:
-*  `address` - address of smart contract (receiving party of the transaction)
+*  `address` - address of the smart contract (receiving party of the transaction)
+*  `user` - the sending party of the transaction
+*  `timeStamp` - timestamp when the transaction was mined
 *  `blockNumber` - number of block in which the transaction was recorded
 *  `gasUsed` - the exact units of gas that was used for the transaction
 *  `gasPrice` - cost per unit of gas specified for the transaction
 *  `gas` - maximum amount of gas provided for the transaction
-*  `from` - the sending party of the transaction
-*  `input` - input data of the transaction decoded with ABI of smart contract
-*  `hash` - hash of the transaction
-*  `timeStamp` - timestamp when the transaction was mined
-*  `parameters` - transaction function parameters
+*  `alias` - alias of the smart contract
+*  `itxs` - internal transactions (traces) related to the transaction
+*  `input` - encoded input data 
+*  `method` - method called in the transaction 
+*  `parameters` - transaction method parameters decoded with ABI of smart contract
 *  `features` - parameters' features
 
 ### Example:

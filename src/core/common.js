@@ -73,14 +73,8 @@ const mergeTxInfo = (txs, itxs) => {
 };
 
 const getAdresses = (txs) => {
-    let addresses = new Set();
-    txs.forEach((tx) => {
-        if (!addresses.has(tx.contractAddress.toLowerCase())) {
-            addresses.add(tx.contractAddress.toLowerCase());
-        }
-    });
-
-    return addresses;
+    const addresses = txs.map(tx => tx.to);
+    return addresses.filter(address => address.length);
 };
 
 const getAbisAndDecoders = async (address, txs, options) => {
@@ -280,8 +274,8 @@ const persistTxsData = async function (txs, options) {
         },
         'alias',
         'itxs',
-        'method',
         'input',
+        'method',
         'properties',
         'features',
     ];
@@ -300,6 +294,12 @@ const persistTxsData = async function (txs, options) {
     const date = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }).split('/').join('');
     const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit'}).split(':').join('');
 
+    const dir =`${options.path ? options.path : process.cwd()}`;
+
+    if (!fs.existsSync(dir)){
+        fs.mkdirSync(dir);
+    }
+
     Object.keys(txsIndexedByAlias).forEach(async (alias) =>{
         const txsByAlias = txsIndexedByAlias[alias];
         try {
@@ -309,7 +309,7 @@ const persistTxsData = async function (txs, options) {
                 const ttxs = txsByAlias.slice(i * chunk, (i + 1) * chunk);
 
                 const fname = `${alias}_${date}_${time}_${i}.csv`;
-                const fpath = `${process.cwd()}/${fname}`;
+                const fpath = `${dir}/${fname}`;
 
                 promises.push(new Promise((resolve, reject) => parseAsync(ttxs, opts)
                     .then(async (csv) => {

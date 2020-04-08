@@ -19,8 +19,8 @@
   "author": "koteld",
   "license": "MIT",
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/exyte/ethgasstats.git"
+    "type": "git",
+    "url": "https://github.com/exyte/ethgasstats.git"
   },
   "dependencies": {
     "commander": "^5.0.0",

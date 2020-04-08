@@ -1,7 +1,6 @@
 const {
     validateContractAddress,
     getTxInfo,
-    getAdresses,
     getAbisAndDecoders,
     revealTxsData,
     persistTxsData

@@ -9,50 +9,33 @@ const apiUrls = {
     goerli: 'https://api-goerli.etherscan.io/api'
 };
 
-async function getContractCreationDate(options, address) {
-    const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;
-    const pathParams = [];
-    let params = {
-        module: 'account',
-        action: 'txlistinternal',
-        address: address,
-        sort: 'asc',
-        page: 1,
-    };
-    const method = HttpRequestMethod.GET;
-    const response = await apiHttpRequest({
-        apiUrl,
-        pathParams,
-        params,
-        method
-    });
-    return response;
-}
+const apikey = 'NGU6TY7RCXUTNM6SJA27721VV4V71TE4WW';
 
-async function getAbi(address, options) {
+const getAbi = async (address, options) => {
     const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;
     const pathParams = [];
-    const params = {
+    const queryParams = {
         module: 'contract',
         action: 'getabi',
-        address
+        address,
+        apikey,
     };
     const method = HttpRequestMethod.GET;
     const response = await apiHttpRequest({
         apiUrl,
         pathParams,
-        params,
+        queryParams,
         method
     });
     return response;
-}
+};
 
-async function getTxInfo(address, options, internal = false) {
+const getTxInfo = async (address, options, internal = false) => {
     let txs = [];
     const offset = 200;
     const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;
     const pathParams = [];
-    let params = {
+    let queryParams = {
         module: 'account',
         action: internal ? 'txlistinternal' : 'txlist',
         address,
@@ -60,7 +43,8 @@ async function getTxInfo(address, options, internal = false) {
         endblock: options.endblock,
         sort: 'asc',
         page: 1,
-        offset
+        offset,
+        apikey,
     };
     const method = HttpRequestMethod.GET;
     let next = false;
@@ -68,37 +52,37 @@ async function getTxInfo(address, options, internal = false) {
         const response = await apiHttpRequest({
             apiUrl,
             pathParams,
-            params,
+            queryParams,
             method
         });
         next = response.result.length === offset;
         txs = txs.concat(response.result);
-        ++params.page;
+        ++queryParams.page;
     } while (next);
     return txs;
-}
+};
 
-async function validateContractAddress(address, options) {
+const validateContractAddress = async (address, options) => {
     const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;
     const pathParams = [];
-    const params = {
+    const queryParams = {
         module: 'proxy',
         action: 'eth_getCode',
-        address
+        address,
+        apikey,
     };
     const method = HttpRequestMethod.GET;
     const response = await apiHttpRequest({
         apiUrl,
         pathParams,
-        params,
+        queryParams,
         method
     });
     return response;
-}
+};
 
 module.exports = {
     validateContractAddress,
     getTxInfo,
     getAbi,
-    getContractCreationDate
 };

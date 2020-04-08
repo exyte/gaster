@@ -1,6 +1,6 @@
 const { FeatureType } = require('./enums');
 
-function getFeatures(data) {
+const getFeatures = (data) => {
     const { types, names, inputs } = data;
     const re = /(\w+)(\[])/;
     const features = [];

@@ -1,9 +1,7 @@
 const fetch = require('node-fetch');
 const { HttpRequestMethod } = require('./core/enums');
 
-const apikey = 'NGU6TY7RCXUTNM6SJA27721VV4V71TE4WW';
-
-const apiHttpRequest = async ({ apiUrl, pathParams = [], params = {}, method }) => {
+const apiHttpRequest = async ({ apiUrl, pathParams = [], queryParams = {}, method }) => {
     let httpRequest;
     switch (method) {
         case HttpRequestMethod.GET:
@@ -15,10 +13,6 @@ const apiHttpRequest = async ({ apiUrl, pathParams = [], params = {}, method }) 
         default:
             throw new Error('Error: unsupported API HTTP request');
     }
-    const queryParams = {
-        ...params,
-        apikey,
-    };
     return await httpRequest(apiUrl, pathParams, queryParams);
 };
 
@@ -59,7 +53,7 @@ const buildUrl = (url, params) => {
         }
     }
     if (qs.length > 0) {
-        qs = qs.substring(0, qs.length - 1); // chop off last "&"
+        qs = qs.substring(0, qs.length - 1);
         url = url + '?' + qs;
     }
 

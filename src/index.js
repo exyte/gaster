@@ -1,6 +1,7 @@
 const {
     validateContractAddress,
     getTxInfo,
+    getCreatedContracts,
     getAbisAndDecoders,
     revealTxsData,
     persistTxsData
@@ -20,6 +21,15 @@ const getGasStats = async (address, options) => {
     }
 
     const txs = await getTxInfo(address, options);
+    if (options.recursive) {
+        const createdContracts = getCreatedContracts(txs);
+        // fetch sequentially, not parallel, due to etherscan.io restrictions
+        // TODO: make bunches, too slow
+        for (let i = 0; i < createdContracts.length; ++i) {
+            const ctxs =  await getTxInfo(createdContracts[i], options);
+            txs.push(...ctxs)
+        }
+    }
     const abis = await getAbisAndDecoders(address, txs, options);
     const preparedTxs = await revealTxsData(txs, abis);
     await persistTxsData(preparedTxs, options);

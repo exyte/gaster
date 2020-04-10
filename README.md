@@ -53,7 +53,7 @@ Acceptable formats:
 Transaction information is saved in CSV format.
 Columns:
 *  `address` - address of the smart contract (receiving party of the transaction)
-*  `user` - the sending party of the transaction
+*  `caller` - the sending party of the transaction
 *  `timeStamp` - timestamp when the transaction was mined
 *  `blockNumber` - number of block in which the transaction was recorded
 *  `gasUsed` - the exact units of gas that was used for the transaction

@@ -50,6 +50,16 @@ const getTxInfo = async (address, options) => {
     return mergedTxs.filter((tx) => tx.isError === '0');
 };
 
+const getCreatedContracts = (txs) => {
+    const contracts = txs.reduce((agg, tx) => {
+        const { itxs } = tx;
+        const traces = itxs.filter(itx => itx.type === 'create');
+        const contracts = traces.map(trace => trace.contractAddress);
+        return [...agg, ...contracts]
+    }, []);
+    return [...new Set(contracts)];
+};
+
 const mergeTxInfo = (txs, itxs) => {
     const itxsIndex = itxs.reduce((agg, itx) => {
         const { from, to, contractAddress, hash, type, input, timeStamp } = itx;
@@ -61,7 +71,7 @@ const mergeTxInfo = (txs, itxs) => {
     }, {});
 
     const mergedTxs = txs.map((tx) => {
-        const itxs = itxsIndex[tx.hash];
+        const itxs = itxsIndex[tx.hash] || [];
         return {
             ...tx,
             to: itxs && itxs.length === 1 && itxs[0].type === 'delegatecall' ? itxs[0].to : tx.to,
@@ -243,7 +253,7 @@ const persistTxsData = async function (txs, options) {
             default: 'NULL'
         },
         {
-            label: 'user',
+            label: 'caller',
             value: 'from',
             default: 'NULL'
         },
@@ -282,7 +292,11 @@ const persistTxsData = async function (txs, options) {
     const opts = { fields };
     const promises = [];
 
-    const txsIndexedByAlias = txs.reduce((agg, tx) => {
+    const txsSortedByTimestamp = txs.sort((a, b) => a.timeStamp > b.timeStamp);
+    const startblock = options.startblock || 0;
+    const endblock = options.endblock || txsSortedByTimestamp.slice(-1)[0].blockNumber;
+
+    const txsIndexedByAlias = txsSortedByTimestamp.reduce((agg, tx) => {
         const alias = tx.alias || 'unidentified';
         if (!agg[`${alias}`]) {
             agg[`${alias}`] = []
@@ -290,9 +304,6 @@ const persistTxsData = async function (txs, options) {
         agg[`${alias}`].push(tx);
         return agg;
     }, {});
-    const now = new Date();
-    const date = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }).split('/').join('');
-    const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit'}).split(':').join('');
 
     const dir =`${options.path ? options.path : process.cwd()}`;
 
@@ -308,7 +319,7 @@ const persistTxsData = async function (txs, options) {
             for (let i = 0; i < quantity; ++i) {
                 const ttxs = txsByAlias.slice(i * chunk, (i + 1) * chunk);
 
-                const fname = `${alias}_${date}_${time}_${i}.csv`;
+                const fname = `${alias}_${startblock}_${endblock}_${i}.csv`;
                 const fpath = `${dir}/${fname}`;
 
                 promises.push(new Promise((resolve, reject) => parseAsync(ttxs, opts)
@@ -337,6 +348,7 @@ const persistTxsData = async function (txs, options) {
 module.exports = {
     validateContractAddress,
     getTxInfo,
+    getCreatedContracts,
     getAbisAndDecoders,
     revealTxsData,
     getFeatures,

@@ -75,7 +75,7 @@ gaster 0x4Ca389fAAd549aDd7124f2B215266cE162D964e7 --endblock 6050576 --net ropst
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 ## License
-[MIT](https://choosealicense.com/licenses/mit/)
+Gaster is available under the [MIT](https://choosealicense.com/licenses/mit/) license. See the LICENSE file for more info. 
 
 
 

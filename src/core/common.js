@@ -61,6 +61,12 @@ const getCreatedContracts = (txs) => {
 };
 
 const mergeTxInfo = (txs, itxs) => {
+    const getCalee = (tx, itxs) => {
+        if (tx.contractAddress && tx.contractAddress.length > 0) return { to: tx.contractAddress, contractCreation: true };
+        if (itxs && itxs.length === 1 && itxs[0].type === 'delegatecall') return { to: itxs[0].to, contractCreation: false };
+        return { to: tx.to, contractCreation: false };
+    };
+
     const itxsIndex = itxs.reduce((agg, itx) => {
         const { from, to, contractAddress, hash, type, input, timeStamp } = itx;
         if(!agg[`${hash}`]) {
@@ -72,10 +78,12 @@ const mergeTxInfo = (txs, itxs) => {
 
     const mergedTxs = txs.map((tx) => {
         const itxs = itxsIndex[tx.hash] || [];
+        const { to, contractCreation } = getCalee(tx);
         return {
             ...tx,
-            to: itxs && itxs.length === 1 && itxs[0].type === 'delegatecall' ? itxs[0].to : tx.to,
+            to,
             itxs,
+            contractCreation,
         }
     });
 
@@ -217,7 +225,7 @@ const revealTxsData = async function (txs, abis) {
         return {
             ...tx,
             alias,
-            method,
+            method: method || (tx.contractCreation ? `Contract creation ${alias}` : ''),
             inputs,
             types,
             names,

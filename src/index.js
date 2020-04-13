@@ -2,8 +2,8 @@ const {
     validateContractAddress,
     getTxInfo,
     getCreatedContracts,
-    getAbisAndDecoders,
-    revealTxsData,
+    getDecoders,
+    decodeAndProcessTxsData,
     persistTxsData
 } = require('./core/common');
 
@@ -30,9 +30,9 @@ const getGasStats = async (address, options) => {
             txs.push(...ctxs)
         }
     }
-    const abis = await getAbisAndDecoders(address, txs, options);
-    const preparedTxs = await revealTxsData(txs, abis);
-    await persistTxsData(preparedTxs, options);
+    const abis = getDecoders(options.abi);
+    const txsData = await decodeAndProcessTxsData(txs, abis, options);
+    await persistTxsData(txsData, options);
 };
 
 module.exports = { getGasStats };

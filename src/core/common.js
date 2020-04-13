@@ -90,23 +90,21 @@ const mergeTxInfo = (txs, itxs) => {
     return mergedTxs;
 };
 
-const getAdresses = (txs) => {
-    const addresses = txs.map(tx => tx.to);
-    return addresses.filter(address => address.length);
+const getDecoder = (abi) => {
+    try {
+        return new InputDataDecoder(abi);
+    } catch(err) {
+        logger.error(`Error occurred on creating txs' input data decoder: ${err}`);
+        return undefined;
+    }
 };
 
-const getAbisAndDecoders = async (address, txs, options) => {
-    const getDecoder = (abi) => {
-        try {
-            return new InputDataDecoder(abi);
-        } catch(err) {
-            logger.error(`Error occurred on creating txs' input data decoder: ${err}`);
-            return undefined;
-        }
-    };
+const getDecoders = (abi) => {
+    if (!abi || abi.length === 0) {
+        return {}
+    }
 
-    const optionsAbi = options.abi ? options.abi : [];
-    const abisIndexedByAddress = optionsAbi.reduce((agg, obj) => {
+    const abis = abi.reduce((agg, obj) => {
         const { address, alias, abi } = obj;
         const decoder = getDecoder(abi);
         if(address) {
@@ -131,52 +129,49 @@ const getAbisAndDecoders = async (address, txs, options) => {
         }
     }, {});
 
-    const addresses = new Set([address, ...getAdresses(txs)]);
-    addresses.forEach(async (address) => {
-        if (!abisIndexedByAddress[address]) {
-            const { abi, err } = await getAbi(address, options);
-            if (err) {
-                logger.error(`Error occurred on getting contract ${address} abi: ${err}`);
-            } else {
-                const decoder = getDecoder();
-                abisIndexedByAddress[address] = {
-                    abi: JSON.parse(abi),
-                    alias: '',
-                    decoder,
-                };
-            }
-        }
-    });
-
-    return abisIndexedByAddress;
+    return abis;
 };
 
 const getAbi = async (address, options) => {
-    let result = {
+    const emptyResult = {
         abi: '[]',
-        err: ''
+        alias: '',
+        decoder: {},
+        err: true,
     };
 
-    const response = await etherscan.getAbi(address, options);
+    const response = await etherscan.getSourceCode(address, options);
 
-    result.abi = response.result;
-
-    if (response.error) {
-        result.err = response.error;
-        result.abi = '[]';
+    if (!response.result || !response.result.length) {
+        return emptyResult;
     }
 
-    if (response.message === 'NOTOK') {
-        result.err = response.result;
-        result.abi = '[]';
+    const {ABI, ContractName} = response.result[0];
+
+    if (ABI === 'Contract source code not verified') {
+        return emptyResult;
     }
 
-    return result;
+    try {
+        const abi = JSON.parse(ABI);
+        const decoder = getDecoder(abi);
+
+        return {
+            abi: ABI,
+            alias: ContractName,
+            decoder,
+            err: false,
+        };
+    } catch (err) {
+        logger.error(`Error occurred on parsing ABI: ${err}`);
+        return emptyResult;
+    }
 };
 
-const revealTxsData = async function (txs, abis) {
-    const decodeTxData = (tx) => {
-        const abi = abis[tx.to.toLowerCase()];
+const decodeAndProcessTxsData = async function (txs, abis, options) {
+    const decodeTxData = async (tx) => {
+        const address = tx.to.toLowerCase();
+        const abi = abis[address];
         if (abi) {
             return {
                 decodedData: abi.decoder.decodeData(tx.input),
@@ -186,22 +181,39 @@ const revealTxsData = async function (txs, abis) {
         }
 
         const { unattached } = abis;
-        if (!unattached || !unattached.length) {
-            return {
-                decodedData: {},
-                alias: '',
-                err: true,
+        if (unattached && unattached.length) {
+            for (let i = 0; i < unattached.length; ++i) {
+                const {abi, alias, decoder} = unattached[i];
+                const decodedData = decoder.decodeData(tx.input);
+                if (decodedData.method !== null) {
+                    abis[address] = {
+                        abi,
+                        alias,
+                        decoder,
+                    };
+                    return {
+                        decodedData,
+                        alias,
+                        err: false,
+                    }
+                }
             }
         }
 
-        for (let i = 0; i < unattached.length; ++i) {
-            const decodedData = unattached[i].decoder.decodeData(tx.input);
-            if (decodedData.method !== null) {
-                return {
-                    decodedData,
-                    alias: unattached[i].alias,
-                    err: false,
-                }
+        //get abi
+        const abiFetched = await getAbi(address, options);
+        if (!abiFetched.err) {
+            const {abi, alias, decoder} = abiFetched;
+            const decodedData = decoder.decodeData(tx.input);
+            abis[address] = {
+                abi,
+                alias,
+                decoder,
+            };
+            return {
+                decodedData,
+                alias,
+                err: false,
             }
         }
 
@@ -212,8 +224,8 @@ const revealTxsData = async function (txs, abis) {
         }
     };
 
-    const preparedTxs = txs.map((tx) => {
-        const { decodedData, alias, err } = decodeTxData(tx);
+    const preparedTxs = Promise.all(txs.map(async (tx) => {
+        const { decodedData, alias, err } = await decodeTxData(tx);
         if (err) {
             return tx
         }
@@ -232,7 +244,7 @@ const revealTxsData = async function (txs, abis) {
             properties,
             features,
         };
-    });
+    }));
 
     return preparedTxs;
 };
@@ -357,8 +369,8 @@ module.exports = {
     validateContractAddress,
     getTxInfo,
     getCreatedContracts,
-    getAbisAndDecoders,
-    revealTxsData,
+    getDecoders,
+    decodeAndProcessTxsData,
     getFeatures,
     persistTxsData
 };

@@ -11,12 +11,12 @@ const apiUrls = {
 
 const apikey = 'NGU6TY7RCXUTNM6SJA27721VV4V71TE4WW';
 
-const getAbi = async (address, options) => {
+const getSourceCode = async (address, options) => {
     const apiUrl = options.net ? apiUrls[`${options.net}`] : apiUrls.mainnet;
     const pathParams = [];
     const queryParams = {
         module: 'contract',
-        action: 'getabi',
+        action: 'getsourcecode',
         address,
         apikey,
     };
@@ -84,5 +84,5 @@ const validateContractAddress = async (address, options) => {
 module.exports = {
     validateContractAddress,
     getTxInfo,
-    getAbi,
+    getSourceCode,
 };

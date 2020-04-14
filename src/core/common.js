@@ -224,7 +224,7 @@ const decodeAndProcessTxsData = async function (txs, abis, options) {
         }
     };
 
-    const preparedTxs = Promise.all(txs.map(async (tx) => {
+    const decodedTxs = await Promise.all(txs.map(async (tx) => {
         const { decodedData, alias, err } = await decodeTxData(tx);
         if (err) {
             return tx
@@ -246,7 +246,17 @@ const decodeAndProcessTxsData = async function (txs, abis, options) {
         };
     }));
 
-    return preparedTxs;
+    const txsSortedByTimestamp = decodedTxs.sort((a, b) => a.timeStamp > b.timeStamp);
+    const txsIndexedByAlias = txsSortedByTimestamp.reduce((agg, tx) => {
+        const alias = tx.alias || 'unidentified';
+        if (!agg[`${alias}`]) {
+            agg[`${alias}`] = []
+        }
+        agg[`${alias}`].push(tx);
+        return agg;
+    }, {});
+
+    return txsIndexedByAlias;
 };
 
 const getProperties = (data) => {
@@ -261,11 +271,6 @@ const getFeatures = (data) => {
 };
 
 const persistTxsData = async function (txs, options) {
-    if (!txs.length) {
-        logger.error(`There is no transactions to process`);
-        return;
-    }
-
     const fields = [
         {
             label: 'address',
@@ -312,18 +317,8 @@ const persistTxsData = async function (txs, options) {
     const opts = { fields };
     const promises = [];
 
-    const txsSortedByTimestamp = txs.sort((a, b) => a.timeStamp > b.timeStamp);
     const startblock = options.startblock || 0;
-    const endblock = options.endblock || txsSortedByTimestamp.slice(-1)[0].blockNumber;
-
-    const txsIndexedByAlias = txsSortedByTimestamp.reduce((agg, tx) => {
-        const alias = tx.alias || 'unidentified';
-        if (!agg[`${alias}`]) {
-            agg[`${alias}`] = []
-        }
-        agg[`${alias}`].push(tx);
-        return agg;
-    }, {});
+    const endblock = options.endblock || txs.slice(-1)[0].blockNumber;
 
     const dir =`${options.path ? options.path : process.cwd()}`;
 
@@ -331,8 +326,8 @@ const persistTxsData = async function (txs, options) {
         fs.mkdirSync(dir);
     }
 
-    Object.keys(txsIndexedByAlias).forEach(async (alias) =>{
-        const txsByAlias = txsIndexedByAlias[alias];
+    Object.keys(txs).forEach(async (alias) =>{
+        const txsByAlias = txs[alias];
         try {
             const chunk = 1000;
             const quantity = Math.ceil(txsByAlias.length / chunk);

@@ -59,6 +59,7 @@ program
             endblock,
             net,
             recursive,
+            cli: true,
             ...(path && isValidPath(path) ? { path } : {}),
             ...(abi && isValidPath(abi) ? { abi: getAbi(abi) } : {})
         };

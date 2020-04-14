@@ -32,7 +32,11 @@ const getGasStats = async (address, options) => {
     }
     const abis = getDecoders(options.abi);
     const txsData = await decodeAndProcessTxsData(txs, abis, options);
-    await persistTxsData(txsData, options);
+    if(options.cli) {
+        await persistTxsData(txsData, options);
+    }
+
+    return txsData;
 };
 
 module.exports = { getGasStats };

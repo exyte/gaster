@@ -317,9 +317,6 @@ const persistTxsData = async function (txs, options) {
     const opts = { fields };
     const promises = [];
 
-    const startblock = options.startblock || 0;
-    const endblock = options.endblock || txs.slice(-1)[0].blockNumber;
-
     const dir =`${options.path ? options.path : process.cwd()}`;
 
     if (!fs.existsSync(dir)){
@@ -328,6 +325,10 @@ const persistTxsData = async function (txs, options) {
 
     Object.keys(txs).forEach(async (alias) =>{
         const txsByAlias = txs[alias];
+
+        const startblock = options.startblock || 0;
+        const endblock = options.endblock || txsByAlias.slice(-1)[0].blockNumber;
+
         try {
             const chunk = 1000;
             const quantity = Math.ceil(txsByAlias.length / chunk);

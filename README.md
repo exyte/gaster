@@ -1,5 +1,5 @@
 <img src="https://raw.githubusercontent.com/exyte/media/master/common/header.png">
-<img align="right" src="https://i.imgur.com/q1Zzh54.gif" width="480" />
+<img align="right" src="https://i.imgur.com/hErJVbX.gif" width="480" />
 
 <p><h1 align="left">Gaster</h1></p>
 
@@ -71,28 +71,28 @@ Acceptable format (array of objects):
 
 Transaction information is saved in CSV format.
 Columns:
-*  `address` - address of the smart contract (receiving party of the transaction)
-*  `caller` - the sending party of the transaction
-*  `timeStamp` - timestamp when the transaction was mined
-*  `blockNumber` - number of block in which the transaction was recorded
-*  `gasUsed` - the exact units of gas that was used for the transaction
-*  `gasPrice` - cost per unit of gas specified for the transaction
-*  `gas` - maximum amount of gas provided for the transaction
-*  `alias` - alias of the smart contract
-*  `itxs` - internal transactions (traces) related to the transaction
-*  `input` - encoded input data 
-*  `method` - method called in the transaction 
-*  `parameters` - transaction method parameters decoded with ABI of smart contract
-*  `features` - parameters' features
+*  `address` — address of the smart contract (receiving party of the transaction)
+*  `caller` — the sending party of the transaction
+*  `timeStamp` — timestamp when the transaction was mined
+*  `blockNumber` — number of block in which the transaction was recorded
+*  `gasUsed` — the exact units of gas that was used for the transaction
+*  `gasPrice` — cost per unit of gas specified for the transaction
+*  `gas` — maximum amount of gas provided for the transaction
+*  `alias` — alias of the smart contract
+*  `itxs` — internal transactions (traces) related to the transaction
+*  `input` — encoded input data 
+*  `method` — method called in the transaction 
+*  `parameters` — transaction method parameters decoded with ABI of smart contract
+*  `features` — parameters' features
 
 CSV file name has format:
 
 `<contract alias>_<startblock>_<endblock>_<batch number>.csv`
 
-*  `contract alias` - smart contract alias, if the alias was not found, it will be "unidentified"
-*  `startblock` - block number on which the search was started
-*  `endblock` - block number on which the search was ended
-*  `batch number` - all smart contract transactions are divided into batches of 1000 transactions
+*  `contract alias` — smart contract alias, if the alias was not found, it will be "unidentified"
+*  `startblock` — block number on which the search was started
+*  `endblock` — block number on which the search was ended
+*  `batch number` — all smart contract transactions are divided into batches of 1000 transactions
 
 #### Example:
 In terminal run:

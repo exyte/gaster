@@ -4,10 +4,10 @@
 <p><h1 align="left">Gaster</h1></p>
 
 <p>
-<h4>The utility to get info of transactions for the specified smart contract.</h4>
+<h4>The utility to get info of transactions for the specified smart contract</h4>
 <ul>
-    <li>The output can be used to analyze gas usage.</li>
-    <li>Supports smart contracts deployed with Zeppelin OS.</li>
+    <li>The output can be used to analyze gas usage</li>
+    <li>Supports smart contracts deployed with Zeppelin OS</li>
 </ul>
 </p>
 

@@ -1,10 +1,10 @@
 <img src="https://raw.githubusercontent.com/exyte/media/master/common/header.png">
-<img align="right" src="https://www.dropbox.com/s/j3t0ozbuw0g9i6v/gaster-demo.gif?dl=0&raw=1" width="480" />
+<img align="right" src="https://i.imgur.com/q1Zzh54.gif" width="480" />
 
 <p><h1 align="left">Gaster</h1></p>
 
 <p>
-<h4>The utility to get info of transactions for the specified smart contract</h4>
+<h4>The utility to get transactions data for the specified smart contract</h4>
 <ul>
     <li>The output can be used to analyze gas usage</li>
     <li>Supports smart contracts deployed with Zeppelin OS</li>

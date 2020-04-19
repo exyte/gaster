@@ -20,7 +20,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/exyte/ethgasstats.git"
+    "url": "https://github.com/exyte/gaster.git"
   },
   "dependencies": {
     "commander": "^5.0.0",

@@ -30,7 +30,7 @@ npm install [-g] gaster
 
 * Or install Gaster from github:
 ```bash
-npm install [-g] 'https://github.com/exyte/ethgasstats'
+npm install [-g] 'https://github.com/exyte/gaster'
 ```
 
 ## Usage

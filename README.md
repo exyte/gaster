@@ -1,8 +1,24 @@
-# Gaster - Ethereum GAS stats
+<img src="https://raw.githubusercontent.com/exyte/media/master/common/header.png">
+<img align="right" src="https://www.dropbox.com/s/j3t0ozbuw0g9i6v/gaster-demo.gif?dl=0&raw=1" width="480" />
 
-The utility to get info of transactions for the specified smart contract.
-The output can be used to analyze gas usage.
-Supports smart contracts deployed with Zeppelin OS.
+<p><h1 align="left">Gaster</h1></p>
+
+<p>
+<h4>The utility to get info of transactions for the specified smart contract</h4>
+<ul>
+    <li>The output can be used to analyze gas usage</li>
+    <li>Supports smart contracts deployed with Zeppelin OS</li>
+</ul>
+</p>
+
+___
+
+<p> We are a development agency building
+  <a href="https://clutch.co/profile/exyte#review-731233">phenomenal</a> apps.</p>
+
+</br>
+
+<a href="https://exyte.com/contacts"><img src="https://i.imgur.com/vGjsQPt.png" width="134" height="34"></a> <a href="https://twitter.com/exyteHQ"><img src="https://i.imgur.com/DngwSn1.png" width="165" height="34"></a>
 
 ## Setup
 * Install node package manager [npm](https://nodejs.org/en/download/)
